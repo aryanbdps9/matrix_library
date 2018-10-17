@@ -13,7 +13,13 @@ string list_int_to_string(list<int> l){
     res += "]";
     return res;
 }
-
+int prod_elems_in_list(list<int> &l){
+    int res = 1;
+    for(int elem : l){
+        res *= elem;
+    }
+    return res;
+}
 class generic_array{
 private:
 	unique_ptr<generic_array[]> arr;
@@ -78,6 +84,22 @@ public:
 			}
 		}
 	}
+    void init(list<int> shape, int* flat_arr){
+        init_helper(shape);
+        if (this->ndim == 0){
+            this->ga_length = 0;
+            this->arr.reset();
+            this->val = flat_arr[0];
+        }
+        else{
+            shape.pop_front();
+            this->val = 0;
+            int num_elem_in_submats = prod_elems_in_list(shape);
+            for(int i = 0; i < this->ga_length; i++){
+                this->arr[i].init(shape, &(flat_arr[num_elem_in_submats*i]));
+            }
+        }
+    }
 	generic_array(){
 		this->arr.reset();
 		this->val = 0;
@@ -90,6 +112,9 @@ public:
 	generic_array(list<int> shape, int init_val){
 		init(shape, init_val);
 	}
+    generic_array(list<int>shape, int* flat_arr){
+        init(shape, flat_arr);
+    }
     generic_array(const generic_array &src){
         // cout << "copy constructor called. shape = " << list_int_to_string(src.shape) << "\n";
         this->ga_length = src.ga_length;
@@ -231,10 +256,34 @@ public:
 
         return res;
     }
+    
 };
 
+generic_array arange(list<int> &shape, int start, int stop, int step){
+    if ((start - stop > 0 && step > 0) || (stop - start > 0 && step < 0) || start - stop == 0){
+        return generic_array(shape);
+    }
+    int num_elems = (stop+1-start) / step;
+    num_elems = num_elems > 0 ? num_elems : -num_elems;
+
+    unique_ptr<int[]> buf(new int[num_elems]);
+    for (int i = 0; i < num_elems; i++){
+        buf[i] = start + step * i;
+    }
+    return generic_array(shape, buf.get());
+}
+
+generic_array arange(list<int> &shape, int stop){
+    return arange(shape, 0, stop, stop > 0 ? 1 : -1);
+}
+
+generic_array arange(list<int> &shape, int start, int stop){
+    return arange(shape, start, stop, stop > start ? 1 : -1);
+}
+
 int main(){
-    int shapearr[] = {2, 2};
+    int shapearr[] = {4, 5};
+    int valarr[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19};
     list<int> shape(shapearr, shapearr+2);
     generic_array ga(shape, 43), gb(shape, 3);
     cout << "#############\n";
@@ -244,6 +293,10 @@ int main(){
     generic_array gd = ga - gc;
     ge = ga * gb;
     gf = ga / gb;
-    cout << ga.str() << endl << gb.str() << endl << gc.str() << endl << gd.str() << endl << ge.str() << endl << gf.str();
+    cout << ga.str() << endl << gb.str() << endl << gc.str() << endl << gd.str() << endl << ge.str() << endl << gf.str() << endl;
+    generic_array gg(shape, valarr);
+    cout << gg.str() << endl;
+    cout << arange(shape, 3, 44, 2).str();
+    cout << arange(shape, 59, 21).str();
     return 0;
 }
