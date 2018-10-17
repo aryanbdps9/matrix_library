@@ -4,6 +4,15 @@
 
 using namespace std;
 
+string list_int_to_string(list<int> l){
+    string res = "[";
+    for (auto val : l){
+        res += to_string(val) + ",";
+    }
+    res += "]";
+    return res;
+}
+
 class generic_array{
 	generic_array* arr;
 	int ga_length;
@@ -77,15 +86,52 @@ public:
 	generic_array(list<int> shape, int init_val){
 		init(shape, init_val);
 	}
+    generic_array(const generic_array &src){
+        // cout << "copy constructor called\n";
+        this->ga_length = src.ga_length;
+        this->ndim = src.ndim;
+        this->val = src.val;
+        this->shape = src.shape;
+        if (this->ndim == 0){
+            this->arr = NULL;
+        }
+        else{
+            this->arr = new generic_array[this->ga_length];
+            for (int i = 0; i < this->ga_length; i++){
+                this->arr[i] = src.arr[i];
+            }
+        }
+    }
 	string str(){
 		return str_helper("");
 	}
+    list<int> get_shape(){
+        return this->shape;
+    }
+    generic_array add(generic_array const &rhs){
+        generic_array res = *this;
+        if (rhs.shape == this->shape){
+            res.val += rhs.val;
+            if (this->ndim != 0){
+                for (int i = 0; i < this->ga_length; i++){
+                    res.arr[i] = this->arr[i].add(rhs.arr[i]);
+                }
+            }
+        }
+        else{
+            cout << "Incompatible shapes\n";
+        }
+        return res;
+    }
 };
 
 int main(){
-    int shapearr[] = {4,5, 6};
-    list<int> shape(shapearr, shapearr+3);
-    generic_array ga(shape, 2);
-    cout << ga.str() << endl;
+    int shapearr[] = {4,5};
+    list<int> shape(shapearr, shapearr+2);
+    generic_array ga(shape, 2), gb(shape, 3);
+    cout << "#############\n";
+    generic_array gc(shape);
+    gc = ga.add(gb);
+    cout << ga.str() << endl << gb.str() << gc.str();
     return 0;
 }
