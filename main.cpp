@@ -15,6 +15,7 @@ string list_int_to_string(list<int> l){
 }
 
 class generic_array{
+private:
 	unique_ptr<generic_array[]> arr;
 	int ga_length;
 	int val;
@@ -108,6 +109,7 @@ public:
     ~generic_array(){
         this->arr.reset();
     }
+public:
 	string str(){
 		return str_helper("");
 	}
@@ -121,6 +123,51 @@ public:
             if (this->ndim != 0){
                 for (int i = 0; i < this->ga_length; i++){
                     res.arr[i] = this->arr[i].add(rhs.arr[i]);
+                }
+            }
+        }
+        else{
+            cout << "Incompatible shapes\n";
+        }
+        return res;
+    }
+    generic_array sub(generic_array const &rhs){
+        generic_array res = *this;
+        if (rhs.shape == this->shape){
+            res.val -= rhs.val;
+            if (this->ndim != 0){
+                for (int i = 0; i < this->ga_length; i++){
+                    res.arr[i] = this->arr[i].sub(rhs.arr[i]);
+                }
+            }
+        }
+        else{
+            cout << "Incompatible shapes\n";
+        }
+        return res;
+    }
+    generic_array elem_mul(generic_array const & rhs){
+        generic_array res = *this;
+        if (rhs.shape == this->shape){
+            res.val *= rhs.val;
+            if (this->ndim != 0){
+                for (int i = 0; i < this->ga_length; i++){
+                    res.arr[i] = this->arr[i].elem_mul(rhs.arr[i]);
+                }
+            }
+        }
+        else{
+            cout << "Incompatible shapes\n";
+        }
+        return res;
+    }
+    generic_array elem_div(generic_array const & rhs){
+        generic_array res = *this;
+        if (rhs.shape == this->shape){
+            res.val /= rhs.val;
+            if (this->ndim != 0){
+                for (int i = 0; i < this->ga_length; i++){
+                    res.arr[i] = this->arr[i].elem_div(rhs.arr[i]);
                 }
             }
         }
@@ -161,6 +208,15 @@ public:
     generic_array operator+(generic_array const &rhs){
         return this->add(rhs);
     }
+    generic_array operator-(generic_array const &rhs){
+        return this->sub(rhs);
+    }
+    generic_array operator*(generic_array const &rhs){
+        return this->elem_mul(rhs);
+    }
+    generic_array operator/(generic_array const & rhs){
+        return this->elem_div(rhs);
+    }
     generic_array & operator+(){
         return *this;
     }
@@ -175,7 +231,6 @@ public:
 
         return res;
     }
-
 };
 
 int main(){
@@ -183,9 +238,12 @@ int main(){
     list<int> shape(shapearr, shapearr+2);
     generic_array ga(shape, 43), gb(shape, 3);
     cout << "#############\n";
-    generic_array gc(shape);
+    generic_array gc(shape), ge(shape), gf(shape);
     gc = ga + -gb;
     ga += gc;
-    cout << ga.str() << endl << gb.str() << gc.str();
+    generic_array gd = ga - gc;
+    ge = ga * gb;
+    gf = ga / gb;
+    cout << ga.str() << endl << gb.str() << endl << gc.str() << endl << gd.str() << endl << ge.str() << endl << gf.str();
     return 0;
 }
