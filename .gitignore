@@ -1,0 +1,7 @@
+*.out
+foo.*
+mat.hpp
+myMat.cpp
+*.pdf
+.vscode
+matrix.cpp
