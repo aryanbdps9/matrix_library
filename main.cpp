@@ -40,7 +40,7 @@ class generic_array{
 			for (int i = 0; i < this->ga_length; i++){
 				res += this->arr[i].str_helper(child_append)+";\n";
 			}
-			res += "]";
+			res += append+"]";
 			return res;
 		}
 	}
@@ -83,9 +83,9 @@ public:
 };
 
 int main(){
-    int shapearr[] = {4,5};
-    list<int> shape(shapearr, shapearr+2);
-    generic_array ga(shape);
+    int shapearr[] = {4,5, 6};
+    list<int> shape(shapearr, shapearr+3);
+    generic_array ga(shape, 2);
     cout << ga.str() << endl;
     return 0;
 }
