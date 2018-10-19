@@ -140,10 +140,10 @@ public:
         this->arr.reset();
     }
 public:
-    int get_val(){
+    int get_val(){ // Extracts val of the array
         return this->val;
     }
-	string str(){
+	string str(){ // Returns string representation of the array
 		return str_helper("");
 	}
     list<int> get_shape(){
@@ -227,6 +227,15 @@ public:
     }
     generic_array & operator=(int rhs){
         this->val = rhs;
+        // return *this;
+        if (this->ndim == 0){
+            return *this;
+        }
+        else{
+            for (int i = 0; i < this->ga_length; i++){
+                this->arr[i] = rhs;
+            }
+        }
         return *this;
     }
     generic_array & operator+=(generic_array const &rhs){
@@ -329,6 +338,7 @@ int main(){
     list<int> shape = make_list_from_arr(shapearr);
     // list<int> shape(shapearr, shapearr+2);
     generic_array ga(shape, 43), gb(shape, 3);
+    ga = 100;
     cout << "#############\n";
     generic_array gc(shape), ge(shape), gf(shape);
     gc = ga + -gb;
