@@ -1,6 +1,7 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include <cassert>
 // #include "myMat.cpp"
 
 using namespace std;
@@ -18,6 +19,10 @@ int prod_elems_in_list(list<int> &l){
     for(int elem : l){
         res *= elem;
     }
+    return res;
+}
+list<int> make_list_from_arr(int *arr){
+    list<int> res(arr, arr+sizeof(arr)/sizeof(int));
     return res;
 }
 class generic_array{
@@ -135,6 +140,9 @@ public:
         this->arr.reset();
     }
 public:
+    int get_val(){
+        return this->val;
+    }
 	string str(){
 		return str_helper("");
 	}
@@ -215,6 +223,11 @@ public:
                 this->arr[i] = rhs.arr[i];
             }
         }
+        return *this;
+    }
+    generic_array & operator=(int rhs){
+        this->val = rhs;
+        return *this;
     }
     generic_array & operator+=(generic_array const &rhs){
         if (rhs.shape == this->shape){
@@ -256,7 +269,36 @@ public:
 
         return res;
     }
-    
+    generic_array & operator[](int index){
+        assert(this->ndim > 0);
+        assert(index >= 0 && index < this->ga_length);
+        // TODO: throw exceptions
+        return this->arr[index];
+    }
+
+public:
+    generic_array matmul(generic_array & rhs){
+        assert(this->ndim == 2 && rhs.ndim == 2);
+        int m1 = this->shape.front(), n1 = this->shape.back();
+        int m2 = rhs.shape.front(), n2 = rhs.shape.back();
+        assert(n1 == m2);
+        int newshapearr[] = {m1, n2};
+        list <int> newshape = make_list_from_arr(newshapearr);
+        generic_array res(newshape); // There are faster ways than this, but this will make multithreading stightly easier
+        int sum;
+        for(int ii = 0; ii < m1; ii++){ // row of 1st mat
+            generic_array &row = this->arr[ii];
+            for(int jj = 0; jj < n2; jj++){ // col of 2nd mat
+                sum = 0;
+                for(int kk = 0; kk < n1; kk++){
+                    sum += row[kk].get_val() * rhs[kk][jj].get_val();
+                    
+                }
+                res[ii][jj] = sum;
+            }
+        }
+        return res;
+    }
 };
 
 generic_array arange(list<int> &shape, int start, int stop, int step){
@@ -282,21 +324,24 @@ generic_array arange(list<int> &shape, int start, int stop){
 }
 
 int main(){
-    int shapearr[] = {4, 5};
-    int valarr[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19};
-    list<int> shape(shapearr, shapearr+2);
+    int shapearr[] = {4, 4}, shapearr4x5[] = {4,5}, shapearr5x4[] = {5,4};
+    int valarr[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+    list<int> shape = make_list_from_arr(shapearr);
+    // list<int> shape(shapearr, shapearr+2);
     generic_array ga(shape, 43), gb(shape, 3);
     cout << "#############\n";
     generic_array gc(shape), ge(shape), gf(shape);
     gc = ga + -gb;
-    ga += gc;
     generic_array gd = ga - gc;
     ge = ga * gb;
     gf = ga / gb;
     cout << ga.str() << endl << gb.str() << endl << gc.str() << endl << gd.str() << endl << ge.str() << endl << gf.str() << endl;
     generic_array gg(shape, valarr);
+    gg = arange(shape, 1, 100);
     cout << gg.str() << endl;
-    cout << arange(shape, 3, 44, 2).str();
-    cout << arange(shape, 59, 21).str();
+    list<int> shape4x5 = make_list_from_arr(shapearr4x5), shape5x4 = make_list_from_arr(shapearr5x4);
+    generic_array a = arange(shape4x5, 1, 20), b = arange(shape5x4, 1, 20);
+    generic_array c = a.matmul(b);
+    cout << "a = " << a.str() << endl << " b = " << b.str() << "c = " << c.str() << endl;
     return 0;
 }
