@@ -5,3 +5,4 @@ myMat.cpp
 *.pdf
 .vscode
 matrix.cpp
+*.exe

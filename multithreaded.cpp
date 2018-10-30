@@ -1,8 +1,11 @@
-#include <iostream>
-#include <list>
-#include <memory>
-#include <chrono>
-#include <cassert>
+// #include <iostream>
+// #include <list>
+// #include <memory>
+// #include <chrono>
+// #include <cassert>
+#include <thread>
+#include <bits/stdc++.h>
+
 using namespace std;
 
 string list_int_to_string(list<int> l){
@@ -163,6 +166,39 @@ public:
         }
         return res;
     }
+	// void add_range(generic_array const & rhs, generic_array& res, int l, int r){
+	void add_range(generic_array const & rhs, generic_array* const res, int l, int r){
+		// r is exclusive
+		res->val = rhs.val + this->val;
+		// if (res.ndim!= 0){}
+		for (int i = l; i < r; i++){
+			res->arr[i] = this->arr[i].add(rhs.arr[i]);
+		}
+	}
+	generic_array multithreaded_add(generic_array const &rhs, int num_thr){
+		generic_array res = *this;
+		int block_size = ga_length / num_thr;
+		if (rhs.shape == this->shape){
+            res.val += rhs.val;
+            if (this->ndim != 0){
+				thread mythreads[num_thr];
+				for (int i = 0; i < num_thr; i++){
+					mythreads[i] = thread(&generic_array::add_range, this, rhs, &res, i*block_size, min((i+1)*block_size, ga_length));
+					// mythreads[i] = thread(&generic_array::add_range, this, rhs, res, i*block_size, min((i+1)*block_size, ga_length));
+				}
+				for (int i = 0; i < num_thr; i++){
+					mythreads[i].join();
+				}
+                // for (int i = 0; i < this->ga_length; i++){
+                //     res.arr[i] = this->arr[i].add(rhs.arr[i]);
+                // }
+            }
+        }
+        else{
+            cout << "Incompatible shapes\n";
+        }
+        return res;
+	}
     generic_array sub(generic_array const &rhs){
         generic_array res = *this;
         if (rhs.shape == this->shape){
@@ -352,16 +388,24 @@ int main(){
     generic_array a = arange(shape4x5, 1, 20), b = arange(shape5x4, 1, 20);
     generic_array c = a.matmul(b);
     cout << "a = " << a.str() << endl << " b = " << b.str() << "c = " << c.str() << endl;
-    int large_shapearr[] = {1000, 10000};
-    list<int> large_shape = make_list_from_arr(large_shapearr);
+	int mm, nn;
+	cout << "enter mm:\t" << endl;
+	cin >> mm;
+	cout << "enter nn:\t\n";
+	cin >> nn;
+	int large_shapearr[] = {mm, nn};
+	// int large_shapearr[] = {10, 10};
+	list<int> large_shape = make_list_from_arr(large_shapearr);
     auto t_stamp1 = chrono::high_resolution_clock::now();
     generic_array aa(large_shape, 1), bb(large_shape, 2), cc(large_shape);
     auto t_stamp2 = chrono::high_resolution_clock::now();
-    cc = aa + bb;
+    cc = aa.multithreaded_add(bb, 2);
+	// cc = aa + bb;
     auto t_stamp3 = chrono::high_resolution_clock::now();
     auto alloc_time21 = chrono::duration_cast<chrono::duration<double>>(t_stamp2 - t_stamp1) .count();
     auto alloc_time32 = chrono::duration_cast<chrono::duration<double>>(t_stamp3 - t_stamp2) .count();
     printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time21, alloc_time32);
-    cout << "cc " << list_int_to_string(cc.get_shape()) << endl;
-    return 0;
+	// cout << "cc " << cc.str() << endl;
+	cout << "cc " << list_int_to_string(cc.get_shape()) << endl;
+	return 0;
 }
