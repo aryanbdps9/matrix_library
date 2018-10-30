@@ -60,6 +60,14 @@ list<T> make_list_from_arr(T *arr){
     list<T> res(arr, arr+sizeof(arr)/sizeof(T));
     return res;
 }
+
+vector<unsigned long long int> ret_cum_shape(vector<unsigned int> & shape){
+	vector<unsigned long long int> res(shape.size(), 1);
+	for (int i = shape.size()-2; i>= 0; i--){
+		res[i] = res[i+1]*(shape[i]);
+	}
+	return res;
+}
 class gen_arr{
 	vector<unsigned int> shape;
 	vector<unsigned long long int> cumulative_shape;
@@ -67,48 +75,6 @@ class gen_arr{
 	shared_ptr<int> arr;
 	int arr_len;
 	int offset;
-	// string str_helper_old(string append){
-	// 	if (this->ndim == 0){
-	// 		return to_string(this->val);
-	// 	}
-	// 	else if (this->ndim == 1){
-	// 		string res = "";
-	// 		res += "[";
-	// 		for (int i = 0; i < this->ga_length; i++){
-	// 			res += this->arr[i].str_helper("");
-    //             res += ",";
-	// 		}
-	// 		res[res.length()-1] = ']';
-	// 		return append+res;
-	// 	}
-	// 	else{
-	// 		string res = append + "[\n";
-	// 		string child_append = append + "\t";
-	// 		for (int i = 0; i < this->ga_length; i++){
-	// 			res += this->arr[i].str_helper(child_append)+";\n";
-	// 		}
-	// 		res += append+"]";
-	// 		return res;
-	// 	}
-	// }
-	vector<unsigned long long int> ret_cum_shape(vector<unsigned int> & shape){
-		vector<unsigned long long int> res(1, shape.size());
-		for (int i = shape.size()-2; i>= 0; i--){
-			res[i] = res[i+1]*(shape[i]);
-		}
-		return res;
-	}
-	string string_helper(string append, int ind, int off){
-		string res = append + "[";
-		int ulim = shape[ndim - 1] + off;
-		if (ind == ndim - 1){
-			for (int i = off; i < ulim; i++){
-				int ival = (((int*)(arr.get()))[i]);
-				res += to_string(ival);
-			}
-		}
-		return res;
-	}
 public:
 	gen_arr(){
 		this->arr.reset();
@@ -120,8 +86,8 @@ public:
 		this->shape = shape;
 		this->cumulative_shape = ret_cum_shape(this->shape);
 		this->ndim = shape.size();
-		this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int[]>());
 		this->arr_len = prod_elems_in_vector(shape);
+		this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int[]>());
 		this->offset = 0;
 	}
 	gen_arr(vector<unsigned int> shape){
@@ -130,13 +96,25 @@ public:
 	gen_arr(vector<unsigned int> shape, int init_val){
 		// assert(validate_vec(shape));
 		init(shape);
-		memset(arr.get(), init_val, sizeof(int)*arr_len);
+		fill_n(arr.get(), this->arr_len, init_val);
+		cout << endl;
+	}
+	string print_stats(){
+		string res = "";
+		res = res + "shape:\t" + vec_to_string(this->shape)+";\t";
+		res = res + "ndim:\t" + to_string(this->ndim)+";\t";
+		res = res + "arr_len:\t" + to_string(this->arr_len)+";\t";
+		res = res + "offset:\t" + to_string(this->offset)+";\t";
+		return res;
 	}
 	gen_arr add(gen_arr const &rhs){
 		assert(this->shape == rhs.shape);
 		gen_arr res(this->shape);
-		for (int i = 0; i < this->arr_len; i++){
-			res.arr.get()[i] = this->arr.get()[i] + rhs.arr.get()[i];
+		int ilhs = 0, irhs0 = this->offset, irhs1 = rhs.offset;
+		int *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		for (; ilhs < this->arr_len; ilhs++, irhs0++, irhs1++){
+			ptrlhs[ilhs] = ptrrhs0[irhs0] + ptrrhs1[irhs1];
+			// res.arr.get()[ilhs] = this->arr.get()[irhs0] + rhs.arr.get()[irhs1];
 		}
 		return res;
 	}
@@ -152,10 +130,58 @@ public:
 		memcpy(this->arr.get(), rhs.arr.get(), this->arr_len * sizeof(int));
 		this->offset = 0;
 	}
+	string str(){
+		cout << "str entered\n";
+		vector<unsigned long long int> prod_vec = ret_cum_shape(shape);
+		reverse(prod_vec.begin(), prod_vec.end());
+		int dimns = shape.size();
+		string res = "";
+		for (int i = 0; i < prod_vec[dimns-1]; ++i){
+			int count = 0;
+			for (int j = 0; j < dimns; ++j){
+				if(i % prod_vec[j] == 0){
+					count++;
+				}
+				else{
+					break;
+				}
+			}
+			if(count){
+				for (int j = 0; j < dimns; ++j){
+					if(j >= dimns-count){
+						res += "[";
+					}
+					else{
+						res += " ";
+					}
+				}
+			}
+			res += to_string(this->arr.get()[i]);
+			count = 0;
+			for (int j = 0; j < dimns; ++j){
+				if((i+1) % prod_vec[j] == 0){
+					count++;
+					res += "]";
+				}
+				else{
+					break;
+				}
+			}
+			if(count){
+				res += "\n";
+			}
+			else{
+				res+= " ";
+			}
+		}
+		return res;
+	}
 	string dummy_dump(){
 		string res = "[";
-		for (int i = 0; i < this->arr_len; i++){
-			res += to_string(i) + ",";
+		int ulim = this->offset + this->arr_len;
+		int* ptrarr = this->arr.get();
+		for (int i = this->offset; i < ulim; i++){
+			res += to_string(ptrarr[i]) + ",";
 		}
 		res[res.size()-1] = ']';
 		return res;
@@ -167,7 +193,10 @@ int main(){
 	vector<unsigned int> shape;
 	shape.push_back(4);shape.push_back(1);
 	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
-	gen_arr a(shape, 2), b(shape, 3);
-	// gen_arr c = a + b;
+	gen_arr a(shape, 212000), b(shape, 321112);
+	gen_arr c = a + b;
+	cout << "a's dump: \n" << a.str() << endl;
+	cout << "b's dump: \n" << b.str() << endl;
+	cout << "c's dump: \n" << c.str() << endl;
 	return 0;
 }
