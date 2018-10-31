@@ -5,13 +5,6 @@
 // #include <cassert>
 #include <bits/stdc++.h>
 using namespace std;
-template <typename T>
-struct array_deleter{
-	void operator()(T const *p)
-	{
-		delete[] p;
-	}
-};
 template <class T>
 string list_to_string(list<T> l){
     string res = "[";
@@ -82,20 +75,23 @@ public:
 		this->arr_len = 0;
 		this->offset = 0;
 	}
-	void init(vector<unsigned int> shape){
+	void init(vector<unsigned int> shape, bool alloc=true){
 		this->shape = shape;
 		this->cumulative_shape = ret_cum_shape(this->shape);
 		this->ndim = shape.size();
 		this->arr_len = prod_elems_in_vector(shape);
-		this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int[]>());
+		if (alloc){
+			this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int[]>());
+		}
 		this->offset = 0;
 	}
-	gen_arr(vector<unsigned int> shape){
-		init(shape);
+	gen_arr(vector<unsigned int> shape, uint8_t alloc=true){
+		printf("shape, alloc constructor called\n");
+		init(shape, alloc);
 	}
 	gen_arr(vector<unsigned int> shape, int init_val){
 		// assert(validate_vec(shape));
-		init(shape);
+		init(shape, true);
 		fill_n(arr.get(), this->arr_len, init_val);
 		cout << endl;
 	}
@@ -129,6 +125,51 @@ public:
 		this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int>());
 		memcpy(this->arr.get(), rhs.arr.get(), this->arr_len * sizeof(int));
 		this->offset = 0;
+	}
+	gen_arr operator[](int index){
+		assert(index >= 0);
+        if (this->ndim > 0){
+			vector<unsigned int> new_shape(this->shape.begin()+1, this->shape.end());
+			gen_arr res(new_shape, false);
+			res.arr = this->arr;
+			int new_offset = this->offset + this->cumulative_shape[0]*index;
+			res.offset = new_offset;
+			return res;
+		}
+		else{
+			printf("this->ndim should be a positive int\n");
+			assert(this->ndim > 0);
+		}
+    }
+	// int operator[](int index){
+	// 	assert(index >= 0);
+	// 	assert(this->ndim == 1)
+	// 	return this->arr.get()[this->offset+index];
+	// }
+	gen_arr matmul(gen_arr & rhs){
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1); new_shape.push_back(n2);
+		gen_arr res(new_shape, true);
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		int *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+		for (int ii = 0; ii < m1; ii++){
+			for(int jj = 0; jj < m1; jj++){
+				int sum = 0;
+				for (int kk = 0; kk < n1; kk++){
+					sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]+ptrrhs1[rhs1off+kk*rhs1sh0+jj];
+				}
+				*ptrlhs = sum;
+				ptrlhs++;
+			}
+		}
+		return res;
 	}
 	string str(){
 		cout << "str entered\n";
@@ -186,17 +227,47 @@ public:
 		res[res.size()-1] = ']';
 		return res;
 	}
+	vector<unsigned int> get_shape(){
+		return this->shape;
+	}
 };
 
 int main(){
 	int shapearr[2] = {4,1};
-	vector<unsigned int> shape;
-	shape.push_back(4);shape.push_back(1);
+	vector<vector<unsigned int> > shapes;
+	shapes.push_back(vector<unsigned int> ());
+	shapes[0].push_back(1);shapes[0].push_back(4);
+	// shapes[0].push_back(1000);shapes[0].push_back(10000);
 	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
-	gen_arr a(shape, 212000), b(shape, 321112);
-	gen_arr c = a + b;
-	cout << "a's dump: \n" << a.str() << endl;
-	cout << "b's dump: \n" << b.str() << endl;
-	cout << "c's dump: \n" << c.str() << endl;
+	// auto t_stamp11 = chrono::high_resolution_clock::now();
+	// gen_arr a(shapes[0], 212000), b(shapes[0], 321112);
+	// auto t_stamp12 = chrono::high_resolution_clock::now();
+	// gen_arr c = a + b;
+    // auto t_stamp13 = chrono::high_resolution_clock::now();
+	// auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
+	// auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
+
+	// cout << "c.shape" << vec_to_string(c.get_shape()) << endl;
+	// printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time121, alloc_time132);
+
+	shapes.push_back(vector<unsigned int> ());
+	shapes[1].push_back(4);shapes[1].push_back(1);
+	// shapes[1].push_back(10000);shapes[1].push_back(1000);
+
+	auto t_stamp21 = chrono::high_resolution_clock::now();
+	gen_arr a2(shapes[0], 212000), b2(shapes[1], 321112);
+	auto t_stamp22 = chrono::high_resolution_clock::now();
+	gen_arr c2 = a2.matmul(b2);
+    auto t_stamp23 = chrono::high_resolution_clock::now();
+	auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
+	auto alloc_time232 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
+	cout << "fooo\n";
+	// cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time221, alloc_time232);
+
+	cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
+	cout << "a's dump: \n" << a2.str() << endl; // a2.dummy_dump()
+	cout << "b's dump: \n" << b2.str() << endl;
+	cout << "c's dump: \n" << c2.str() << endl;
 	return 0;
 }
