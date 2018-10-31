@@ -53,14 +53,35 @@ list<T> make_list_from_arr(T *arr){
     list<T> res(arr, arr+sizeof(arr)/sizeof(T));
     return res;
 }
+vector<unsigned long long int> prods(vector<unsigned int> shape){
+	vector<unsigned long long int> prod_vec;
+	unsigned long long int prod = 1;
+	unsigned int dimns = shape.size();
+	for (int i = 0; i < dimns; ++i)
+	{
+		prod *= shape[dimns-i-1];
+		prod_vec.push_back(prod);
+	}
+	return prod_vec;
+}
+
 
 vector<unsigned long long int> ret_cum_shape(vector<unsigned int> & shape){
+	vector<unsigned long long int> res(shape.size(), 1);
+	for (int i = shape.size()-2; i>= 0; i--){
+		res[i] = res[i+1]*(shape[i+1]);
+	}
+	return res;
+}
+
+vector<unsigned long long int> ret_cum_shape2(vector<unsigned int> & shape){
 	vector<unsigned long long int> res(shape.size(), 1);
 	for (int i = shape.size()-2; i>= 0; i--){
 		res[i] = res[i+1]*(shape[i]);
 	}
 	return res;
 }
+
 class gen_arr{
 	vector<unsigned int> shape;
 	vector<unsigned long long int> cumulative_shape;
@@ -152,11 +173,14 @@ public:
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
 		assert(n1 == m2);
 		vector<unsigned int> new_shape;
+		uint8_t tr = 1;
 		new_shape.push_back(m1); new_shape.push_back(n2);
-		gen_arr res(new_shape, true);
+		gen_arr res(new_shape, tr);
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
 		int *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
 		ptrlhs = ptrlhs + res.offset;
 		for (int ii = 0; ii < m1; ii++){
@@ -171,10 +195,12 @@ public:
 		}
 		return res;
 	}
+
 	string str(){
 		cout << "str entered\n";
-		vector<unsigned long long int> prod_vec = ret_cum_shape(shape);
-		reverse(prod_vec.begin(), prod_vec.end());
+		auto prod_vec = prods(shape);
+		// vector<unsigned long long int> prod_vec = ret_cum_shape(shape);
+		// reverse(prod_vec.begin(), prod_vec.end());
 		int dimns = shape.size();
 		string res = "";
 		for (int i = 0; i < prod_vec[dimns-1]; ++i){
@@ -236,7 +262,7 @@ int main(){
 	int shapearr[2] = {4,1};
 	vector<vector<unsigned int> > shapes;
 	shapes.push_back(vector<unsigned int> ());
-	shapes[0].push_back(1);shapes[0].push_back(4);
+	shapes[0].push_back(1000);shapes[0].push_back(1000);
 	// shapes[0].push_back(1000);shapes[0].push_back(10000);
 	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
 	// auto t_stamp11 = chrono::high_resolution_clock::now();
@@ -251,23 +277,23 @@ int main(){
 	// printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time121, alloc_time132);
 
 	shapes.push_back(vector<unsigned int> ());
-	shapes[1].push_back(4);shapes[1].push_back(1);
+	shapes[1].push_back(1000);shapes[1].push_back(1000);
 	// shapes[1].push_back(10000);shapes[1].push_back(1000);
 
 	auto t_stamp21 = chrono::high_resolution_clock::now();
-	gen_arr a2(shapes[0], 212000), b2(shapes[1], 321112);
+	gen_arr a2(shapes[0], 210), b2(shapes[1], 322);
 	auto t_stamp22 = chrono::high_resolution_clock::now();
 	gen_arr c2 = a2.matmul(b2);
     auto t_stamp23 = chrono::high_resolution_clock::now();
 	auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
 	auto alloc_time232 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
 	cout << "fooo\n";
-	// cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
+	cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
 	printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time221, alloc_time232);
 
-	cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
-	cout << "a's dump: \n" << a2.str() << endl; // a2.dummy_dump()
-	cout << "b's dump: \n" << b2.str() << endl;
-	cout << "c's dump: \n" << c2.str() << endl;
+	// cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
+	// cout << "a's dump: \n" << a2.str() << endl; // a2.dummy_dump()
+	// cout << "b's dump: \n" << b2.str() << endl;
+	// cout << "c's dump: \n" << c2.str() << endl;
 	return 0;
 }
