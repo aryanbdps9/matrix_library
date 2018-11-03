@@ -25,15 +25,15 @@ string vec_to_string(vector<T> v){
 }
 template <class T>
 T prod_elems_in_list(list<T> &l){
-    T res = 1;
-    for(int elem : l){
+    T res = T(1);
+    for(auto elem : l){
         res *= elem;
     }
     return res;
 }
 template <class T>
 T prod_elems_in_vector(vector<T> &v){
-	T res = 1;
+	T res = T(1);
 	for (auto elem:v){
 		res *= elem;
 	}
@@ -82,11 +82,12 @@ vector<unsigned long long int> ret_cum_shape2(vector<unsigned int> & shape){
 	return res;
 }
 
+template<class T>
 class gen_arr{
 	vector<unsigned int> shape;
 	vector<unsigned long long int> cumulative_shape;
 	int ndim;
-	shared_ptr<int> arr;
+	shared_ptr<T> arr;
 	int arr_len;
 	int offset;
 public:
@@ -102,19 +103,27 @@ public:
 		this->ndim = shape.size();
 		this->arr_len = prod_elems_in_vector(shape);
 		if (alloc){
-			this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int[]>());
+			this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T[]>());
 		}
 		this->offset = 0;
 	}
-	gen_arr(vector<unsigned int> shape, uint8_t alloc=true){
-		printf("shape, alloc constructor called\n");
+	gen_arr(vector<unsigned int> shape, T init_val, bool do_init=true, bool alloc=true){
+		if (! alloc){
+			printf("non alloc constructor called\n");
+		}
 		init(shape, alloc);
+		if (do_init && alloc){
+			fill_n(arr.get(), this->arr_len, init_val);
+		}
 	}
-	gen_arr(vector<unsigned int> shape, int init_val){
-		// assert(validate_vec(shape));
-		init(shape, true);
-		fill_n(arr.get(), this->arr_len, init_val);
-		cout << endl;
+	// gen_arr(vector<unsigned int> shape, T init_val){
+	// 	// assert(validate_vec(shape));
+	// 	init(shape, true);
+	// 	fill_n(arr.get(), this->arr_len, init_val);
+	// 	cout << endl;
+	// }
+	gen_arr(vector<unsigned int> shape){
+		init(shape);
 	}
 	string print_stats(){
 		string res = "";
@@ -124,11 +133,11 @@ public:
 		res = res + "offset:\t" + to_string(this->offset)+";\t";
 		return res;
 	}
-	gen_arr add(gen_arr const &rhs){
+	gen_arr add(gen_arr<T> const &rhs){
 		assert(this->shape == rhs.shape);
-		gen_arr res(this->shape);
+		gen_arr<T> res(this->shape);
 		int ilhs = 0, irhs0 = this->offset, irhs1 = rhs.offset;
-		int *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
 		for (; ilhs < this->arr_len; ilhs++, irhs0++, irhs1++){
 			ptrlhs[ilhs] = ptrrhs0[irhs0] + ptrrhs1[irhs1];
 			// res.arr.get()[ilhs] = this->arr.get()[irhs0] + rhs.arr.get()[irhs1];
@@ -143,15 +152,16 @@ public:
 		this->cumulative_shape = rhs.cumulative_shape;
 		this->ndim = rhs.ndim;
 		this->arr_len = rhs.arr_len;
-		this->arr = shared_ptr<int>(new int[arr_len], std::default_delete<int>());
-		memcpy(this->arr.get(), rhs.arr.get(), this->arr_len * sizeof(int));
+		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
+		memcpy(this->arr.get(), rhs.arr.get(), this->arr_len * sizeof(T));
 		this->offset = 0;
 	}
 	gen_arr operator[](int index){
 		assert(index >= 0);
         if (this->ndim > 0){
 			vector<unsigned int> new_shape(this->shape.begin()+1, this->shape.end());
-			gen_arr res(new_shape, false);
+			T temp;
+			gen_arr<T> res(new_shape, temp, false, false);
 			res.arr = this->arr;
 			int new_offset = this->offset + this->cumulative_shape[0]*index;
 			res.offset = new_offset;
@@ -167,29 +177,30 @@ public:
 	// 	assert(this->ndim == 1)
 	// 	return this->arr.get()[this->offset+index];
 	// }
-	gen_arr matmul(gen_arr & rhs){
+	gen_arr matmul(gen_arr<T> & rhs){
 		assert(this->ndim == 2 && rhs.ndim == 2);
 		int m1 = this->shape[0], n1 = this->shape[1];
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
 		assert(n1 == m2);
 		vector<unsigned int> new_shape;
-		uint8_t tr = 1;
 		new_shape.push_back(m1); new_shape.push_back(n2);
-		gen_arr res(new_shape, tr);
+		gen_arr<T> res(new_shape, 0, false, true);
+		printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
 		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
 		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
-		int *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
 		ptrlhs = ptrlhs + res.offset;
 		for (int ii = 0; ii < m1; ii++){
 			for(int jj = 0; jj < m1; jj++){
-				int sum = 0;
+				T sum = 0;
 				for (int kk = 0; kk < n1; kk++){
-					sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]+ptrrhs1[rhs1off+kk*rhs1sh0+jj];
+					sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]*ptrrhs1[rhs1off+kk*rhs1sh0+jj];
 				}
 				*ptrlhs = sum;
+				// cout << "ii = " << ii << ";\tjj = " << jj << ";\tsum = " << sum << endl;
 				ptrlhs++;
 			}
 		}
@@ -262,7 +273,7 @@ int main(){
 	int shapearr[2] = {4,1};
 	vector<vector<unsigned int> > shapes;
 	shapes.push_back(vector<unsigned int> ());
-	shapes[0].push_back(1000);shapes[0].push_back(1000);
+	shapes[0].push_back(2);shapes[0].push_back(5);
 	// shapes[0].push_back(1000);shapes[0].push_back(10000);
 	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
 	// auto t_stamp11 = chrono::high_resolution_clock::now();
@@ -277,13 +288,15 @@ int main(){
 	// printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time121, alloc_time132);
 
 	shapes.push_back(vector<unsigned int> ());
-	shapes[1].push_back(1000);shapes[1].push_back(1000);
+	shapes[1].push_back(5);shapes[1].push_back(2);
 	// shapes[1].push_back(10000);shapes[1].push_back(1000);
 
 	auto t_stamp21 = chrono::high_resolution_clock::now();
-	gen_arr a2(shapes[0], 210), b2(shapes[1], 322);
+	gen_arr<float> a2(shapes[0], 3.0), b2(shapes[1], 7.0);
+	// printf("a2, b2 allocated\n");
 	auto t_stamp22 = chrono::high_resolution_clock::now();
-	gen_arr c2 = a2.matmul(b2);
+	gen_arr<float> c2 = a2.matmul(b2);
+	// printf("c2 calculated\n");
     auto t_stamp23 = chrono::high_resolution_clock::now();
 	auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
 	auto alloc_time232 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
