@@ -14,15 +14,15 @@ to compile it, use the following command:
 ### Single threaded:
 - Elementwise
 	- [X] Add
-	- [ ] Subtract
-	- [ ] Multiply
-	- [ ] Divide
-	- [ ] Fn
+	- [X] Subtract
+	- [X] Multiply
+	- [X] Divide
+	- [X] Fn
 	- [ ] conjugate (can be done using fn, or directly)
-- [ ] reshape
+- [X] reshape
 - [X] matmul
 - [ ] FFT
-- [ ] transpose
+- [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
 - [ ] trace
@@ -31,16 +31,15 @@ to compile it, use the following command:
 
 ### Multi threaded:
 - Elementwise
-	- [ ] Add
-	- [ ] Subtract
-	- [ ] Multiply
-	- [ ] Divide
-	- [ ] Fn
+	- [X] Add
+	- [X] Subtract
+	- [X] Multiply
+	- [X] Divide
+	- [X] Fn
 	- [ ] conjugate (can be done using fn, or directly)
-- [ ] reshape
 - [ ] matmul
 - [ ] FFT
-- [ ] transpose
+- [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
 - [ ] trace
