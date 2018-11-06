@@ -98,6 +98,49 @@ class gen_arr{
 	shared_ptr<T> arr;
 	int arr_len;
 	int offset;
+	static void add_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = rhs0[i] + rhs1[i];
+		}
+		return;
+	}
+	static void sub_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = rhs0[i] + rhs1[i];
+		}
+		return;
+	}
+	static void mul_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = rhs0[i] + rhs1[i];
+		}
+		return;
+	}
+	static void div_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = rhs0[i] + rhs1[i];
+		}
+		return;
+	}
+	static void fn_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems, function<T(T,T)> &fn){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = fn(rhs0[i], rhs1[i]);
+		}
+		return;
+	}
+	static T basic_op_add(T a, T b){
+		return a + b;
+	}
+	static T basic_op_sub(T a, T b){
+		return a - b;
+	}
+	static T basic_op_mul(T a, T b){
+		return a * b;
+	}
+	static T basic_op_div(T a, T b){
+		return a / b;
+	}
+
 public:
 	gen_arr(){
 		this->arr.reset();
@@ -141,17 +184,97 @@ public:
 		res = res + "offset:\t" + to_string(this->offset)+";\t";
 		return res;
 	}
-	void add_helper(T* lhs, T* rhs0, T* rhs1, unsigned int num_elems){
-		// for(; num_elems > 0; num_elems--){
-		// 	*lhs = *rhs0 + *rhs1;
-		// 	lhs++;rhs0++;rhs1++;
-		// }
-		for(int i = 0; i < num_elems; i++){
-			lhs[i] = rhs0[i] + rhs1[i];
+	gen_arr & multi_threaded_op(gen_arr<T>  & rhs, int num_thr, function<T(T,T)> fn){
+		assert(this->shape == rhs.shape);
+		gen_arr<T> *res = new gen_arr<T>;
+		res->init(this->shape, true);
+		// gen_arr<T> res(this->shape);
+		int num_elem = this->arr_len;
+		int load_per_thr = num_elem / num_thr;
+		int num_left = num_elem - load_per_thr * num_thr;
+		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		thread workers[num_thrs];
+		// gen_arr<T> res(this->shape);
+		T *lhsptr, *rhs0ptr, *rhs1ptr;
+		lhsptr = res->arr.get();
+		rhs0ptr = this->arr.get()+this->offset;
+		rhs1ptr = rhs.arr.get()+rhs.offset;
+		for (int i = 0; i < num_thr; i++){
+			workers[i] = thread(&gen_arr<T>::fn_helper, lhsptr, rhs0ptr, rhs1ptr, load_per_thr, fn);
+			// workers[i] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+			lhsptr+= load_per_thr;
+			rhs0ptr += load_per_thr;
+			rhs1ptr += load_per_thr;
 		}
-		return;
+		if (num_left > 0){
+			workers[num_thr] = thread(&gen_arr<T>::fn_helper, lhsptr, rhs0ptr, rhs1ptr, num_left, fn);
+			// workers[num_thr] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, num_left);
+		}
+		for (int i = 0; i < num_thrs; i++){
+			workers[i].join();
+		}
+		return *res;
 	}
-	gen_arr multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
+	gen_arr & multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
+		assert(this->shape == rhs.shape);
+		gen_arr<T> *res = new gen_arr(this->shape);
+		// gen_arr<T> res(this->shape);
+		int num_elem = this->arr_len;
+		int load_per_thr = num_elem / num_thr;
+		int num_left = num_elem - load_per_thr * num_thr;
+		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		thread workers[num_thrs];
+		// gen_arr<T> res(this->shape);
+		T *lhsptr, *rhs0ptr, *rhs1ptr;
+		lhsptr = res->arr.get();
+		rhs0ptr = this->arr.get()+this->offset;
+		rhs1ptr = rhs.arr.get()+rhs.offset;
+		function<void(T*,T*, T*, unsigned int)> fun_ptr;
+		// void (fun_ptr(T*,T*, T*, unsigned int));
+		// T* lhs, T* rhs0, T* rhs1, unsigned int num_elems
+		if (name=="add"){
+			fun_ptr= gen_arr<T>::add_helper;
+		}
+		else if (name=="sub"){
+			fun_ptr = gen_arr<T>::sub_helper;
+		}
+		else if (name=="mul"){
+			fun_ptr = gen_arr<T>::mul_helper;
+		}
+		else {
+			fun_ptr = gen_arr<T>::div_helper;
+		}
+		for (int i = 0; i < num_thr; i++){
+			workers[i] = thread(fun_ptr, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+			// workers[i] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+			lhsptr+= load_per_thr;
+			rhs0ptr += load_per_thr;
+			rhs1ptr += load_per_thr;
+		}
+		if (num_left > 0){
+			workers[num_thr] = thread(&adh<T>, lhsptr, rhs0ptr, rhs1ptr, num_left);
+			// workers[num_thr] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, num_left);
+		}
+		for (int i = 0; i < num_thrs; i++){
+			workers[i].join();
+		}
+		return *res;
+	}
+	gen_arr & multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
+		return multi_threaded_op2(rhs, num_thr, "add");
+	}
+	gen_arr & multi_threaded_sub(gen_arr<T> &rhs, int num_thr){
+		return multi_threaded_op2(rhs, num_thr, "sub");
+	}
+	gen_arr & multi_threaded_mul(gen_arr<T> &rhs, int num_thr){
+		return multi_threaded_op2(rhs, num_thr, "mul");
+	}
+	gen_arr & multi_threaded_div(gen_arr<T> &rhs, int num_thr){
+		return multi_threaded_op2(rhs, num_thr, "div");
+	}
+	/* gen_arr multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
 		assert(this->shape == rhs.shape);
 		gen_arr<T> res(this->shape);
 		int num_elem = this->arr_len;
@@ -180,7 +303,7 @@ public:
 			workers[i].join();
 		}
 		return res;
-	}
+	} */
 	gen_arr add(gen_arr<T> const &rhs){
 		assert(this->shape == rhs.shape);
 		gen_arr<T> res(this->shape);
@@ -201,7 +324,7 @@ public:
 		this->ndim = rhs.ndim;
 		this->arr_len = rhs.arr_len;
 		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
-		memcpy(this->arr.get(), rhs.arr.get(), this->arr_len * sizeof(T));
+		memcpy(this->arr.get(), rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
 		this->offset = 0;
 	}
 	gen_arr operator[](int index){
@@ -317,34 +440,39 @@ public:
 	}
 };
 
-int main(){
+int main(int argc, char* argv[]){
+	int num_thr = 4;
+	if (argc >= 2){
+		num_thr = atoi(argv[1]);
+	}
 	int shapearr[2] = {4,1};
 	vector<vector<unsigned int> > shapes;
 	shapes.push_back(vector<unsigned int> ());
 	shapes[0].push_back(1000);shapes[0].push_back(1000);
-	// shapes[0].push_back(1000);shapes[0].push_back(10000);
-	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
-	// auto t_stamp11 = chrono::high_resolution_clock::now();
-	// gen_arr a(shapes[0], 212000), b(shapes[0], 321112);
-	// auto t_stamp12 = chrono::high_resolution_clock::now();
-	// gen_arr c = a + b;
-    // auto t_stamp13 = chrono::high_resolution_clock::now();
-	// auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
-	// auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
-
-	// cout << "c.shape" << vec_to_string(c.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time121, alloc_time132);
-
 	shapes.push_back(vector<unsigned int> ());
 	shapes[1].push_back(1000);shapes[1].push_back(1000);
+	// shapes[0].push_back(1000);shapes[0].push_back(10000);
+	// vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
+	auto t_stamp11 = chrono::high_resolution_clock::now();
+	gen_arr<int> a(shapes[0], 9), b(shapes[0], 2);
+	auto t_stamp12 = chrono::high_resolution_clock::now();
+	gen_arr<int> c = a + b;
+	auto t_stamp13 = chrono::high_resolution_clock::now();
+	auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
+	auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
+
+	cout << "c.shape" << vec_to_string(c.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time121, alloc_time132);
 	// shapes[1].push_back(10000);shapes[1].push_back(1000);
-	int num_thr = 4;
 	auto t_stamp21 = chrono::high_resolution_clock::now();
 	gen_arr<int> a2(shapes[0], 3), b2(shapes[1], 7);
 	// printf("a2, b2 allocated\n");
 	auto t_stamp22 = chrono::high_resolution_clock::now();
-	auto c2 = a2.matmul(b2);
+	// auto c2 = a2.matmul(b2);
+	// auto c2 = a2.multi_threaded_add2(b2, num_thr);
+	// auto c2 = a2.multi_threaded_op2(b2, num_thr, "add");
 	// auto c2 = a2.multi_threaded_add(b2, num_thr);
+	auto c2 = a2.multi_threaded_add(b2, num_thr);
 	// printf("c2 calculated\n");
     auto t_stamp23 = chrono::high_resolution_clock::now();
 	auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
@@ -356,7 +484,7 @@ int main(){
 	// auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
 	cout << "fooo\n";
 	cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
-	printf("Time(in seconds): Alloc:%f;\tComputation (single):%f;\n", alloc_time221, alloc_time232);
+	printf("Time(in seconds): Alloc:%f;\tComputation:%f;\n", alloc_time221, alloc_time232);
 	// printf("Time(in seconds): Alloc:%f;\tComputation (single):%f;\tComputation(%d):%f;\n", alloc_time221, alloc_time232, num_thr, alloc_time332);
 
 	// cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
