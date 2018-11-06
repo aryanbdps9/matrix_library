@@ -19,8 +19,9 @@ string list_to_string(list<T> l){
 template <class T>
 string vec_to_string(vector<T> v){
 	string res = "[";
-	for (auto val : v){
-		res += to_string(val) + ",";
+	if(v.size()>0)res+=to_string(v[0]);
+	for (int i=1; i<v.size(); i++){
+		res += "," + to_string(v[i]) ;
 	}
 	res += "]";
 	return res;
@@ -92,7 +93,8 @@ vector<unsigned long long int> ret_cum_shape2(vector<unsigned int> & shape){
 }
 
 string to_string(complex<double> &a){
-	return "(" + to_string(real(a)) +    " + " + to_string(imag(a))  +    " i )" ;
+	return "(" + to_string( real(a)) +    " + " + to_string(imag(a))  +    " i )" ;
+	// return "(" + to_string( real(a) ==  (double ) 0  ? 0 : real(a) ) +    " + " + to_string(imag(a))  +    " i )" ;
 }
 
 template<class T>
@@ -605,14 +607,17 @@ public:
 	}
 	gen_arr dft(){
 		int ts=this->shape[0];
-		gen_arr<complex<double> > w (vector<unsigned int > (2,ts));
+		gen_arr<complex<double> > w (vector<unsigned int > (1,ts));
 		T *ptrw = w.arr.get() ;
 		for(int i=0;i<ts;i++){
+			*ptrw =0;
+			T *ptr_mat = this->arr.get() ;
 			for(int j=0;j<ts;j++){
-				*ptrw++ = polar(1.0,-2*PI*i*j/ts);
+				*ptrw += (* ptr_mat++ )*  polar(1.0,-2*PI*i*j/ts);
 			}
+			*ptrw++;
 		}
-		return  w.matmul(* this);
+		return  w;
 	}
 	vector<T> gen1_to_vector(){
 		int size= this->get_shape()[0];
@@ -625,10 +630,9 @@ public:
 	}
 	gen_arr<T> vector_gen1(vector<T> & v){
 		int size = v.size();
-		vector<unsigned int> new_shape;
-		new_shape.push_back(size);
-		new_shape.push_back(1);
-		gen_arr< T> res (new_shape);
+		// vector<unsigned int> new_shape;
+		// new_shape.push_back(size);
+		gen_arr< T> res (vector<unsigned int> (1,size));
 		T * ptr = res.arr.get();
 		for(int i=0;i<size;i++){
 			 * ptr ++ = v[i];
@@ -636,13 +640,42 @@ public:
 		return res;
 	}
 	gen_arr<T> fft(){
-		assert(this->shape.size() == 2 && this->shape[1]==1 );
+		assert(this->shape.size() == 1  );
 		int size = this->shape[0];
 		assert(__builtin_popcount(size) == 1);
 		vector<T> ans= gen1_to_vector();
 		fft2(ans, 0, size);
 		return vector_gen1(ans);
 	}
+	gen_arr dft_2(){
+		int s1=this->shape[0];
+		int s2=this->shape[1];
+		double powe=-2.0*PI;
+		gen_arr<complex <double> > w(this->shape);
+		T *ptrw=w.arr.get();
+		double mn = s1*s2*1.0;
+		double i_by_s1,j_by_s2;
+		for (int i = 0; i < s1; ++i)
+		{
+			for (int j = 0; j < s2; ++j)
+			{	//w[i][j].getval()=0;
+				*ptrw=0;
+				i_by_s1=i*1.0/s1;
+				j_by_s2=j*1.0/s2;
+				T * ptr_mat = this->arr.get() + offset;
+				for(int k=0;k<s1;k++){
+					for(int l=0;l<s2;l++){
+						*ptrw+= (* ptr_mat++ ) *polar(1.0,powe*(i_by_s1*k+j_by_s2*l));
+					}
+				}
+				*ptrw/=sqrt(mn);
+				// *ptrw/=mn;
+				*ptrw++;
+			}
+		}
+		return w;
+	}
+
 
 };
 
@@ -653,26 +686,31 @@ public:
 
 int main(int argc, char* argv[]){
 	
-	vector<unsigned int > shape_dft;
-	shape_dft.push_back(1024);
-	shape_dft.push_back(1);
-	gen_arr<complex<double> > X =  (shape_dft);
-	X[0][0].getval()= 1;
-    X[1][0].getval()= complex<double >(2,-1);
-    X[2][0].getval()= complex<double >(0,-1);
-    X[3][0].getval()= complex<double >(-1,2);
-	// cout << "X's dump: \n" << X.str()<< endl;
-	auto t_stamp01 = chrono::high_resolution_clock::now();
-	gen_arr<complex< double > > ans = X.fft();
+	// vector<unsigned int > shape_dft;
+	// shape_dft.push_back(4);
+	// // shape_dft.push_back(1);
+	// gen_arr<complex<double> > X =  (shape_dft);
+	// X[0].getval()= 1;
+    // X[1].getval()= complex<double >(2,-1);
+    // X[2].getval()= complex<double >(0,-1);
+    // X[3].getval()= complex<double >(-1,2);
+	// // cout << "X's dump: \n" << X.str()<< endl;
+	// auto t_stamp01 = chrono::high_resolution_clock::now();
+	// gen_arr<complex< double > > ans = X.fft();
 	// gen_arr<complex< double > > ans = X.dft();
-	auto t_stamp02 = chrono::high_resolution_clock::now();
-	auto time_021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
+	// auto t_stamp02 = chrono::high_resolution_clock::now();
+	// auto time_021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
 	// cout<<ans.str()<<endl;
-	cout<<"tim taken "<< time_021<<endl;
-	vector<complex<double> > temp = X.gen1_to_vector();
+	// cout<<ans[0].getval()<<endl;
+	// cout<<ans[1].getval()<<endl;
+	// cout<<ans[2].getval()<<endl;
+	// cout<<ans[3].getval()<<endl;
+	// // cout<<ans[0].getval()<<endl;
+	// cout<<"tim taken "<< time_021<<endl;
+	// vector<complex<double> > temp = X.gen1_to_vector();
 
-	// // for(int i=0;i<temp.size();i++)
-	// // 	cout<<temp[i]<<endl;
+	// for(int i=0;i<temp.size();i++)
+	// 	cout<<temp[i]<<endl;
 	
 	// fft2( temp,0,4);
 
@@ -681,7 +719,26 @@ int main(int argc, char* argv[]){
 	// 	cout<<temp[i]<<endl;?
 
 
+	vector<unsigned int> shape1;
+	shape1.push_back(8);
+	shape1.push_back(8);
+	gen_arr<complex<double> > v(shape1,(0.0,0.0));
 
+	v[1][2].getval()=complex<double> (70.0,0.0);
+	v[1][3].getval()=80;
+	v[1][4].getval()=90;
+	v[2][2].getval()=90;
+	v[2][3].getval()=100;
+	v[2][4].getval()=110;
+	v[3][2].getval()=110;
+	v[3][3].getval()=120;
+	v[3][4].getval()=130;
+	v[4][2].getval()=130;
+	v[4][3].getval()=140;
+	v[4][4].getval()=150;
+
+	gen_arr<complex<double> > ans = v.dft_2();
+	cout<<ans.str();
 
 
 
