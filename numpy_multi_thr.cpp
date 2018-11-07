@@ -545,6 +545,72 @@ public:
 		return res;
 	}
 
+	gen_arr matmul2(gen_arr<T> &rhs)
+	{
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1);
+		new_shape.push_back(n2);
+		gen_arr<T> res(new_shape, 0, false, true);
+		printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+		for (int ii = 0; ii < m1; ii++)
+		{	
+			int iim1 = ii* m1;
+			T t = ptrrhs0[rhs0off + ii * rhs0sh0] ;
+			for (int jj = 0; jj < n2; jj++)
+				*(ptrlhs + iim1 + jj) = t * ptrrhs1[rhs1off + jj];
+			for (int kk = 1; kk < n1; kk++)
+			{
+				for (int jj = 0; jj < n2; jj++)
+					// * ptrhere++  += ptrrhs0[rhs0off + ii * rhs0sh0 + kk] * ptrrhs1[rhs1off + kk * rhs1sh0 + jj];
+				*(ptrlhs + iim1 + jj) += ptrrhs0[rhs0off + ii * rhs0sh0 + kk] * ptrrhs1[rhs1off + kk * rhs1sh0 + jj];
+				}
+		}
+		return res;
+	}
+
+	gen_arr matmul3(gen_arr<T> &rhs)
+	{
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1);
+		new_shape.push_back(n2);
+		gen_arr<T> res(new_shape, 0, false, true);
+		printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+
+		T * Bcolj = new T[n1];
+		for (int jj = 0; jj < n2; jj++)
+		{
+			for (int kk = 0; kk < n1; kk++)
+				Bcolj[kk] = ptrrhs1[rhs1off + kk * rhs1sh0 + jj];
+
+			for (int ii = 0; ii < m1; ii++){
+					register T s = 0;
+					for (int kk = 0; kk < n1; kk++)
+						s += ptrrhs0[rhs0off + ii * rhs0sh0 + kk] * Bcolj[kk];
+					ptrlhs[ii* m1 + jj] = s;
+			}
+		}
+
+		return res;
+	}
+
 	string str(){
 		cout << "str entered\n";
 		auto prod_vec = prods(shape);
@@ -676,7 +742,24 @@ public:
 		return w;
 	}
 
+	T element_sum_for_check(){
+		T sum =0;
+		T *ptrw = this->arr.get();
+		int size = this->cumulative_shape[0] * this->shape[0];
+		for(int i=0;i<size;i++)sum+= *ptrw ++;
+		return sum;
 
+	}
+
+	T element_abs_sum_for_check()
+	{
+		T sum = 0;
+		T *ptrw = this->arr.get();
+		int size = this->cumulative_shape[0] * this->shape[0];
+		for (int i = 0; i < size; i++)
+			sum += abs(*ptrw++);
+		return sum;
+	}
 };
 
 
@@ -686,65 +769,30 @@ public:
 
 int main(int argc, char* argv[]){
 	
-	// vector<unsigned int > shape_dft;
-	// shape_dft.push_back(4);
-	// // shape_dft.push_back(1);
-	// gen_arr<complex<double> > X =  (shape_dft);
-	// X[0].getval()= 1;
-    // X[1].getval()= complex<double >(2,-1);
-    // X[2].getval()= complex<double >(0,-1);
-    // X[3].getval()= complex<double >(-1,2);
-	// // cout << "X's dump: \n" << X.str()<< endl;
-	// auto t_stamp01 = chrono::high_resolution_clock::now();
-	// gen_arr<complex< double > > ans = X.fft();
-	// gen_arr<complex< double > > ans = X.dft();
-	// auto t_stamp02 = chrono::high_resolution_clock::now();
-	// auto time_021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
-	// cout<<ans.str()<<endl;
-	// cout<<ans[0].getval()<<endl;
-	// cout<<ans[1].getval()<<endl;
-	// cout<<ans[2].getval()<<endl;
-	// cout<<ans[3].getval()<<endl;
-	// // cout<<ans[0].getval()<<endl;
-	// cout<<"tim taken "<< time_021<<endl;
-	// vector<complex<double> > temp = X.gen1_to_vector();
-
-	// for(int i=0;i<temp.size();i++)
-	// 	cout<<temp[i]<<endl;
-	
-	// fft2( temp,0,4);
-
-
-	// for(int i=0;i<temp.size();i++)
-	// 	cout<<temp[i]<<endl;?
-
 
 	vector<unsigned int> shape1;
-	shape1.push_back(8);
-	shape1.push_back(8);
-	gen_arr<complex<double> > v(shape1,(0.0,0.0));
+	shape1.push_back(1400);
+	shape1.push_back(1400);
+	gen_arr<int> u(shape1, 2);
+	gen_arr<int> v(shape1, 3);
+	u[ 2][ 3].getval() = 12 ;u[42][ 3].getval() = 12 ;
+	u[21][33].getval() = 1  ;u[61][33].getval() = 1  ;
+	u[2][33].getval() = 132; u[9][33].getval() = 7;
 
-	v[1][2].getval()=complex<double> (70.0,0.0);
-	v[1][3].getval()=80;
-	v[1][4].getval()=90;
-	v[2][2].getval()=90;
-	v[2][3].getval()=100;
-	v[2][4].getval()=110;
-	v[3][2].getval()=110;
-	v[3][3].getval()=120;
-	v[3][4].getval()=130;
-	v[4][2].getval()=130;
-	v[4][3].getval()=140;
-	v[4][4].getval()=150;
+	auto t_stamp01 = chrono::high_resolution_clock::now();
+	// auto ans = u.matmul(v);
+	// auto ans = u.matmul2(v);
+	auto ans = u.matmul3(v);
 
-	gen_arr<complex<double> > ans = v.dft_2();
-	cout<<ans.str();
+	auto t_stamp02 = chrono::high_resolution_clock::now();
+	auto time021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
+	// // cout<<ans.str();
+	cout << "time : " << time021 << endl;
 
+	auto ans2 = u.matmul(v);
+	auto diff = ans2 - ans;
 
-
-
-
-
+	cout<<diff.element_abs_sum_for_check()<<endl;;
 
 	// int num_thr = 4;
 	// if (argc >= 2){
