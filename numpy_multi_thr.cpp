@@ -870,6 +870,36 @@ public:
 		}
 		return w;
 	}
+		gen_arr fft_2d (){
+		unsigned int s1=this->shape[0];
+		unsigned int s2=this->shape[1];
+		double sq=sqrt(s1*s2);
+		gen_arr<complex<double> > ans(this->shape);
+		gen_arr<complex <double> >  transposed = this->transpose();
+		T *ptr_mat = ans.arr.get();
+		T *ptr_trans = transposed.arr.get();
+		for (int i = 0; i < s2; ++i)
+		{
+			gen_arr<complex <double> > d =transposed[i].fft();
+			memcpy(ptr_trans, d.arr.get(), d.arr_len  * sizeof(T) );
+			ptr_trans+=s1;
+			// for (int j = 0; j < s1; ++j)
+			// {	//cout<<d[j].getval()<<" ";
+			// 	// *ptr_trans=d[j].getval();
+			// 	// *ptr_trans++;
+			// }
+		}
+		gen_arr<complex <double> >  ntransposed = transposed.transpose();
+		for (int i = 0; i < s1; ++i)
+		{	
+			gen_arr<complex <double> > d =ntransposed[i].fft();
+			T * ptr_d = d.arr.get();
+			for (int j = 0; j < s2; ++j)
+				* ptr_mat++ = * (ptr_d ++)/sq;
+		}
+		return ans;
+		
+	}
 
 	T element_sum_for_check(){
 		T sum =0;
