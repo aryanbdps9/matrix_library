@@ -911,7 +911,77 @@ public:
 		return ans;
 		
 	}
+	
+	static void multi_dft_helper(T* ptrw,T* ptr_mat,int start,int end,int ts){
+		for(int i=start;i<end;i++){
+			T* ptr_mat_1=ptr_mat;
+			for(int j=0;j<ts;j++){
+					*ptrw += (* ptr_mat_1++ )*  polar(1.0,-2*PI*i*j/ts);
+			}
+				*ptrw++;
+		}
+	}
 
+	gen_arr  multi_dft(int n){
+		unsigned int ts=this->shape[0];
+		gen_arr<T> w (vector<unsigned int > (1,ts));
+		T *ptrw = w.arr.get() ;
+		
+		int n_4=ts/n;
+		thread workers[n];
+		T *ptr_mat = this->arr.get() + this->offset;
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_dft_helper,ptrw,ptr_mat,i*n_4,i*n_4+n_4,ts);
+			ptrw+=n_4;
+		}
+		// int n_4_1=ts-(n-1)*n_4;
+		workers[n-1]=thread(&gen_arr<T>::multi_dft_helper,ptrw,ptr_mat,(n-1)*n_4,ts,ts);
+		for (int i = 0; i < n; ++i)
+			workers[i].join();
+		return  w;
+	}
+
+	static void multi_dft2d_helper(T* ptrw,T* ptr_mat,int start,int end,int s1,int s2){
+		double powe=-2.0*PI;
+		double mn = s1*s2*1.0;
+		double i_by_s1,j_by_s2;
+		for (int i = start; i < end; ++i)
+		{	for (int j = 0; j < s2; ++j)
+			{	*ptrw=0;
+				i_by_s1=i*1.0/s1;
+				j_by_s2=j*1.0/s2;
+				// T * ptr_mat = this->arr.get() + offset;
+				T* ptr_mat1=ptr_mat;
+				for(int k=0;k<s1;k++){
+					for(int l=0;l<s2;l++){
+						*ptrw+= (* ptr_mat1++ ) *polar(1.0,powe*(i_by_s1*k+j_by_s2*l));
+					}
+				}
+				*ptrw/=sqrt(mn);
+				*ptrw++;
+			}
+		}
+	}
+	gen_arr multi_dft_2d(int n){
+		unsigned int s1=this->shape[0];
+		unsigned int s2=this->shape[1];
+		gen_arr<T> w (this->shape);
+		T *ptrw = w.arr.get() ;
+		int n_4=s1/n;
+		thread workers[n];
+		int ns2=n_4*s2;
+		T *ptr_mat = this->arr.get() + this->offset;
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_dft2d_helper,ptrw,ptr_mat,i*n_4,i*n_4+n_4,s1,s2);
+			ptrw+=ns2;
+		}
+		workers[n-1]=thread(&gen_arr<T>::multi_dft2d_helper,ptrw,ptr_mat,(n-1)*n_4,s1,s1,s2);
+		for (int i = 0; i < n; ++i)
+			workers[i].join();
+		return w;
+	}
 
 	T element_abs_sum_for_check(){
 		register T sum = 0;
