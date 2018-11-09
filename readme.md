@@ -2,7 +2,7 @@
 
 numpy_style_main.cpp is the single threaded library.
 to compile it, use the following command:
-`g++ numpy_style_main.cpp -std=c++11 -O4 -march=native`
+`g++ numpy_multi_thr.cpp -std=c++11 -O4 -march=native`
 
 ## Relevant Programs:
 - numpy_style_main.cpp very generalised single threaded array lib
@@ -25,9 +25,11 @@ to compile it, use the following command:
 - [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
-- [ ] trace
-- [ ] sum
-- [ ] mean
+- [X] trace
+- [X] sum
+- [X] mean
+- [X] minimum
+- [X] maximum
 
 ### Multi threaded:
 - Elementwise
@@ -42,6 +44,8 @@ to compile it, use the following command:
 - [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
-- [ ] trace
-- [ ] sum
-- [ ] mean
+- [X] trace
+- [X] sum
+- [X] mean
+- [X] minimum
+- [X] maximum
