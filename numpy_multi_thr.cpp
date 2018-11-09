@@ -1509,7 +1509,61 @@ public:
 			workers[i].join();
 		return w;
 	}
+	
+	static void multi_fft2d_helper1(gen_arr<T> *transposed, T* ptr_trans,int start, int end,unsigned int s1){
+		for (int i = start; i < end; ++i)
+		{	gen_arr<T> d =(* transposed)[i].fft();
+			memcpy(ptr_trans, d.arr.get(), d.arr_len  * sizeof(T) );
+			ptr_trans+=s1;
+		}
+	}
 
+	static void multi_fft2d_helper2(T* ptr_mat,gen_arr * ntransposed,int start,int end,unsigned int s2,double sq){
+		for (int i = start; i < end; ++i)
+		{	
+			gen_arr<complex <double> > d =(* ntransposed)[i].fft();
+			T * ptr_d = d.arr.get();
+			for (int j = 0; j < s2; ++j)
+			{	
+				* ptr_mat++ = * (ptr_d ++)/sq;
+			}
+		}
+	}
+
+	gen_arr multi_fft_2d(int n){
+		unsigned int s1=this->shape[0];
+		unsigned int s2=this->shape[1];
+		double sq=sqrt(s1*s2);
+		gen_arr<complex<double> > ans(this->shape);
+		gen_arr<complex <double> >  transposed = this->transpose();
+		T *ptr_mat = ans.arr.get();
+		T *ptr_trans = transposed.arr.get();
+	    	unsigned int n_s1=n/s1;
+		unsigned int n_s2=n/s2;
+		thread workers[n];
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_fft2d_helper1,&transposed,ptr_trans,i*n_s2,i*n_s2+n_s2,s1);
+			ptr_trans+=n_s2;
+		}
+		
+		workers[n-1]=thread(&gen_arr<T>::multi_fft2d_helper1,&transposed,ptr_trans,(n-1)*n_s2,s2,s1);
+		for(int i=0;i<n;i++)
+			workers[i].join();
+
+		gen_arr<complex <double> >  ntransposed = transposed.transpose();
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_fft2d_helper2,ptr_mat,&ntransposed,i*n_s1,i*n_s1+n_s1,s2,sq);
+			ptr_mat+=n_s1;
+		}
+		workers[n-1]=thread(&gen_arr<T>::multi_fft2d_helper2,ptr_mat,&ntransposed,(n-1)*n_s1,s1,s2,sq);
+		for(int i=0;i<n;i++)
+			workers[i].join();
+
+		return ans;
+	}
+	
 	T element_abs_sum_for_check(){
 		register T sum = 0;
 		T *ptrw = this->arr.get() + this->offset;
