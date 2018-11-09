@@ -25,9 +25,11 @@ to compile it, use the following command:
 - [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
-- [ ] trace
-- [ ] sum
-- [ ] mean
+- [X] trace
+- [X] sum
+- [X] mean
+- [X] minimum
+- [X] maximum
 
 ### Multi threaded:
 - Elementwise
@@ -42,6 +44,8 @@ to compile it, use the following command:
 - [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
-- [ ] trace
-- [ ] sum
-- [ ] mean
+- [X] trace
+- [X] sum
+- [X] mean
+- [X] minimum
+- [X] maximum
