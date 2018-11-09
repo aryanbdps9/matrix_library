@@ -207,6 +207,53 @@ public:
 		return res;
 	}
 
+	gen_arr conv(gen_arr<T> & rhs){
+		int rhs0_ndim = this->ndim;
+		int rhs1_ndim = rhs.ndim;
+		assert(rhs0_ndim == rhs1_ndim);
+		vector<unsigned int> new_shape;
+		vector<unsigned int> rhs0_shape = this->shape;
+		vector<unsigned int> rhs1_shape = rhs.shape;
+		for (int i = 0; i < rhs0_ndim; ++i)
+		{
+			new_shape.push_back(rhs0_shape[i] + rhs1_shape[i] - 1);
+		}
+		gen_arr<T> res(new_shape, 0, true, true);
+		printf("conv: res defined\n");
+		// int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		vector<unsigned long long int> rhs0_cush = this->cumulative_shape, rhs1_cush = rhs.cumulative_shape, lhs_cush = res.cumulative_shape;
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		// ptrlhs = ptrlhs + res.offset;
+		int rhs1_len = rhs.arr_len;
+		int rhs0_len = this->arr_len;
+		for (int rhs1_indx = 0; rhs1_indx < rhs1_len; ++rhs1_indx)
+		{
+			// int temp1 = *(ptrrhs1+rhs1off+rhs1_indx);
+			for (int rhs0_indx = 0; rhs0_indx < rhs0_len; ++rhs0_indx)
+			{
+				// int temp2 = *(ptrrhs0+rhs0off+rhs0_indx);
+				// int temp3 = temp1*temp2;
+				int offset = 0;
+				int rhs0_j = rhs0_indx;
+				int rhs1_j = rhs1_indx;
+				for (int k = 0; k < rhs0_ndim; ++k)
+				{
+					int rhs0_i = rhs0_j/rhs0_cush[k];
+					int rhs1_i = rhs1_j/rhs1_cush[k];
+					rhs0_j = rhs0_j % rhs0_cush[k];
+					rhs1_j = rhs1_j % rhs1_cush[k];
+					int lhs_i = (rhs1_shape[k] - rhs1_i - 1) + rhs0_i;
+					offset += lhs_i*lhs_cush[k];
+				}
+				*(ptrlhs+offset) += ptrrhs1[rhs1off+rhs1_indx]*ptrrhs0[rhs0off+rhs0_indx];
+			}
+		}
+		return res;
+	}
+
 	string str(){
 		cout << "str entered\n";
 		auto prod_vec = prods(shape);
