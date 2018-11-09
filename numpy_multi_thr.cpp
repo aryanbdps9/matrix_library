@@ -163,6 +163,12 @@ class gen_arr{
 		}
 		return;
 	}
+	static void fn_helper(T* lhs, T* rhs0, unsigned int num_elems, function<T(T)> &fn){
+		for(int i = 0; i < num_elems; i++){
+			lhs[i] = fn(rhs0[i]);
+		}
+		return;
+	}
 	static T basic_op_add(T a, T b){
 		return a + b;
 	}
@@ -256,6 +262,45 @@ public:
 		return *res;
 	}
 
+	gen_arr & multi_threaded_op(int num_thr, function<T(T)> fn){
+		gen_arr<T> *res = new gen_arr<T>;
+		res->init(this->shape, true);
+		// gen_arr<T> res(this->shape);
+		int num_elem = this->arr_len;
+		int load_per_thr = num_elem / num_thr;
+		int num_left = num_elem - load_per_thr * num_thr;
+		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		thread workers[num_thrs];
+		// gen_arr<T> res(this->shape);
+		T *lhsptr, *rhs0ptr;
+		lhsptr = res->arr.get();
+		rhs0ptr = this->arr.get()+this->offset;
+		for (int i = 0; i < num_thr; i++){
+			workers[i] = thread(&gen_arr<T>::fn_helper, lhsptr, rhs0ptr, load_per_thr, fn);
+			// workers[i] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+			lhsptr+= load_per_thr;
+			rhs0ptr += load_per_thr;
+		}
+		if (num_left > 0){
+			workers[num_thr] = thread(&gen_arr<T>::fn_helper, lhsptr, rhs0ptr, num_left, fn);
+			// workers[num_thr] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, num_left);
+		}
+		for (int i = 0; i < num_thrs; i++){
+			workers[i].join();
+		}
+		return *res;
+	}
+	gen_arr & single_threaded_op(function<T(T)> fn){
+		gen_arr<T> *res = new gen_arr<T>;
+		res->init(this->shape, true);
+		int num_elem = this->arr_len;
+		T* lhsptr, *rhs0ptr;
+		lhsptr = res->arr.get();
+		rhs0ptr = this->arr.get()+this->offset;
+		fn_helper(lhsptr, rhs0ptr, num_elem, fn);
+		return *res;
+	}
 	gen_arr & multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
 		assert(this->shape == rhs.shape);
 		gen_arr<T> *res = new gen_arr(this->shape);
@@ -1008,14 +1053,24 @@ public:
 		return;
 	}
 	gen_arr & operator=(gen_arr const & rhs){
+
+		int prev_arr_len = this->arr_len;
+		bool isparent = sizeof(this->arr)/sizeof(T) == this->arr_len;
+		if(prev_arr_len != 0 || !isparent){
+			assert(this->shape == rhs.shape);
+			memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
+			return * this;
+		}
 		this->shape = rhs.shape;
 		this->cumulative_shape = rhs.cumulative_shape;
 		this->ndim = rhs.ndim;
 		this->arr_len = rhs.arr_len;
 		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
-		memcpy(this->arr.get(), rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
+		memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
 		this->offset = 0;
 		return *this;
+
+		//new	
 	}
 	gen_arr& operator[](int index){ // see getval
 		assert(index >= 0);
@@ -1025,6 +1080,7 @@ public:
 			gen_arr<T> *res = new gen_arr<T>;
 			res->init(new_shape, false);
 			res->arr = this->arr;
+			res->arr_len = this->cumulative_shape[0];
 			int new_offset = this->offset + this->cumulative_shape[0]*index;
 			res->offset = new_offset;
 			return *res;
@@ -1044,14 +1100,16 @@ public:
 		assert(this->ndim == 0);
 		return this->arr.get()[this->offset];
 	}
-	gen_arr matmul(gen_arr<T> & rhs){
+	gen_arr & matmul(gen_arr<T> & rhs){
 		assert(this->ndim == 2 && rhs.ndim == 2);
 		int m1 = this->shape[0], n1 = this->shape[1];
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
 		assert(n1 == m2);
 		vector<unsigned int> new_shape;
 		new_shape.push_back(m1); new_shape.push_back(n2);
-		gen_arr<T> res(new_shape, 0, false, true);
+		gen_arr<T> *ress = new gen_arr<T>;
+		ress->init(new_shape, true);
+		gen_arr<T> &res = *ress;
 		printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
@@ -1066,9 +1124,160 @@ public:
 				for (int kk = 0; kk < n1; kk++){
 					sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]*ptrrhs1[rhs1off+kk*rhs1sh0+jj];
 				}
-				*ptrlhs ++ = sum;
+				*ptrlhs = sum;
+				ptrlhs++;
 			}
 		}
+		return res;
+	}
+	gen_arr matmul4(gen_arr<T> &rhs){ // 3X faster than matmul
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1); new_shape.push_back(n2);
+		gen_arr<T> *ress = new gen_arr<T>;
+		ress->init(new_shape, true);
+		gen_arr<T> &res = *ress;
+		// gen_arr<T> rhstpose = rhs.transpose_mt(4);
+		gen_arr<T> rhstpose = rhs.transpose();
+		int rhs0off = this->offset, rhs1off = rhstpose.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhstpose.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhstpose.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+		T * ptrrhs2 = ptrrhs1;
+		for (int ii = 0; ii < m1; ii++){
+			ptrrhs1 = ptrrhs2;
+			for (int jj=0; jj < n2; jj++){
+				register T sum = 0;
+				for (int kk = 0; kk < n1; kk++){
+					sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]* ( * ptrrhs1 ++) ;
+					// sum += ptrrhs0[rhs0off+ii*rhs0sh0+kk]*ptrrhs1[rhs1off+jj*rhs1sh0+kk];
+				}
+				* (ptrlhs ++) = sum ;
+				// *ptrlhs = sum;
+				// ptrlhs++;
+			}
+		}
+		return res;
+	}
+	static void matmul_helper(T* lhsptr, T* rhs0ptr, T* rhs1ptr, int r0nr, int r0nc, int r1nr){
+		// r0nr is number of rows represented in rhs0ptr
+		// r0nc is number of cols represented in rhs0ptr
+		// r1nr is number of rows represented in rhs1ptr
+		for (int ii = 0; ii < r0nr; ii++){
+			for (int jj = 0; jj < r1nr; jj++){
+				register T sum = 0;
+				for (int kk = 0; kk < r0nc; kk++){
+					sum += rhs0ptr[ii*r0nc+kk]*rhs1ptr[jj*r0nc+kk];
+				}
+				*lhsptr = sum;
+				lhsptr++;
+			}
+		}
+	}
+	gen_arr matmul_mt(gen_arr<T> &rhs, int num_thr){
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1);
+		new_shape.push_back(n2);
+		gen_arr<T> *ress = new gen_arr<T>;
+		ress->init(new_shape, true);
+		gen_arr<T> &res = *ress;
+		gen_arr<T> rhstpose = rhs.transpose_mt(num_thr);
+		int rhs0off = this->offset, rhs1off = rhstpose.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhstpose.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhstpose.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+
+		int num_col = this->shape[0];
+		int load_per_thr = num_col / num_thr;
+		int num_left = num_col - load_per_thr * num_thr;
+		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+		printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
+		thread workers[num_thrs];
+		int ts0 = this->shape[0];
+		int ts1 = this->shape[1];
+		for (int i = 0; i < num_thr; i++){
+			// workers[i] = thread(&gen_arr<T>::transpose_helper, lhsptr, rhs0ptr, ts0, ts1, load_per_thr);
+			workers[i] = thread(&gen_arr<T>::matmul_helper, ptrlhs, ptrrhs0, ptrrhs1, load_per_thr, n1, n2);
+			ptrlhs += load_per_thr*n2;
+			ptrrhs0 += load_per_thr*n1;
+		}
+		if (num_left > 0){
+			workers[num_thr] = thread(&gen_arr<T>::matmul_helper, ptrlhs, ptrrhs0, ptrrhs1, num_left, n1, n2);
+			// workers[num_thr] = thread(&gen_arr<T>::transpose_helper, lhsptr, rhs0ptr, ts0, ts1, num_left);
+		}
+		for (int i = 0; i < num_thrs; i++){
+			workers[i].join();
+		}
+		return res;
+	}
+
+	gen_arr matmul2(gen_arr<T> &rhs){
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1);
+		new_shape.push_back(n2);
+		gen_arr<T> res(new_shape, 0, false, true);
+		printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+		for (int ii = 0; ii < m1; ii++){	
+			int iim2 = ii* m2;
+			T t = ptrrhs0[rhs0off + ii * rhs0sh0] ;
+			for (int jj = 0;  jj < n2 ; jj++)
+				*(ptrlhs + ii* n2 + jj) = t * ptrrhs1[rhs1off + jj];
+			for (int kk = 1; kk < n1; kk++)
+			{
+				for (int jj = 0; jj < n2; jj++)
+				*(ptrlhs + iim2 + jj) += ptrrhs0[rhs0off + ii * rhs0sh0 + kk] * ptrrhs1[rhs1off + kk * rhs1sh0 + jj];
+				}
+		}
+		return res;
+	}
+
+	gen_arr matmul3(gen_arr<T> &rhs)
+	{
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1);
+		new_shape.push_back(n2);
+		gen_arr<T> res(new_shape, 0, false, true);
+		printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		ptrlhs = ptrlhs + res.offset;
+
+		T * Bcolj = new T[n1];
+		for (int jj = 0; jj < n2; jj++)
+		{
+			for (int kk = 0; kk < n1; kk++)
+				Bcolj[kk] = ptrrhs1[rhs1off + kk * rhs1sh0 + jj];
+
+			for (int ii = 0; ii < m1; ii++){
+					register T s = 0;
+					for (int kk = 0; kk < n1; kk++)
+						s += ptrrhs0[rhs0off + ii * rhs0sh0 + kk] * Bcolj[kk];
+					ptrlhs[ii* m1 + jj] = s;
+			}
+		}
+
 		return res;
 	}
 
@@ -1099,7 +1308,7 @@ public:
 					}
 				}
 			}
-			res += to_string(this->arr.get()[i]);
+			res += to_string(this->arr.get()[i+ this->offset]);
 			count = 0;
 			for (int j = 0; j < dimns; ++j){
 				if((i+1) % prod_vec[j] == 0){
@@ -1138,7 +1347,7 @@ public:
 		T *ptrw = w.arr.get() ;
 		for(int i=0;i<ts;i++){
 			*ptrw =0;
-			T *ptr_mat = this->arr.get() ;
+			T *ptr_mat = this->arr.get()  + this->offset;
 			for(int j=0;j<ts;j++){
 				*ptrw += (* ptr_mat++ )*  polar(1.0,-2*PI*i*j/ts);
 			}
@@ -1157,8 +1366,6 @@ public:
 	}
 	gen_arr<T> vector_gen1(vector<T> & v){
 		int size = v.size();
-		// vector<unsigned int> new_shape;
-		// new_shape.push_back(size);
 		gen_arr< T> res (vector<unsigned int> (1,size));
 		T * ptr = res.arr.get();
 		for(int i=0;i<size;i++){
@@ -1178,10 +1385,10 @@ public:
 		int s1=this->shape[0];
 		int s2=this->shape[1];
 		double powe=-2.0*PI;
-		gen_arr<complex <double> > w(this->shape);
+		gen_arr< T > w(this->shape);
 		T *ptrw=w.arr.get();
-		double mn = s1*s2*1.0;
 		double i_by_s1,j_by_s2;
+		double sqrt_mn = sqrt( s1*s2*1.0);
 		for (int i = 0; i < s1; ++i)
 		{
 			for (int j = 0; j < s2; ++j)
@@ -1190,20 +1397,127 @@ public:
 				i_by_s1=i*1.0/s1;
 				j_by_s2=j*1.0/s2;
 				T * ptr_mat = this->arr.get() + offset;
+				register T sum =0;
 				for(int k=0;k<s1;k++){
 					for(int l=0;l<s2;l++){
-						*ptrw+= (* ptr_mat++ ) *polar(1.0,powe*(i_by_s1*k+j_by_s2*l));
+						sum += (* ptr_mat++ ) * polar(1.0,powe*(i_by_s1*k+j_by_s2*l));
 					}
 				}
-				*ptrw/=sqrt(mn);
-				// *ptrw/=mn;
-				*ptrw++;
+				*ptrw++ = sum/sqrt_mn;
 			}
 		}
 		return w;
 	}
+		gen_arr fft_2d (){
+		unsigned int s1=this->shape[0];
+		unsigned int s2=this->shape[1];
+		double sq=sqrt(s1*s2);
+		gen_arr<complex<double> > ans(this->shape);
+		gen_arr<complex <double> >  transposed = this->transpose();
+		T *ptr_mat = ans.arr.get();
+		T *ptr_trans = transposed.arr.get();
+		for (int i = 0; i < s2; ++i)
+		{
+			gen_arr<complex <double> > d =transposed[i].fft();
+			memcpy(ptr_trans, d.arr.get(), d.arr_len  * sizeof(T) );
+			ptr_trans+=s1;
+			// for (int j = 0; j < s1; ++j)
+			// {	//cout<<d[j].getval()<<" ";
+			// 	// *ptr_trans=d[j].getval();
+			// 	// *ptr_trans++;
+			// }
+		}
+		gen_arr<complex <double> >  ntransposed = transposed.transpose();
+		for (int i = 0; i < s1; ++i)
+		{	
+			gen_arr<complex <double> > d =ntransposed[i].fft();
+			T * ptr_d = d.arr.get();
+			for (int j = 0; j < s2; ++j)
+				* ptr_mat++ = * (ptr_d ++)/sq;
+		}
+		return ans;
+		
+	}
+	
+	static void multi_dft_helper(T* ptrw,T* ptr_mat,int start,int end,int ts){
+		for(int i=start;i<end;i++){
+			T* ptr_mat_1=ptr_mat;
+			for(int j=0;j<ts;j++){
+					*ptrw += (* ptr_mat_1++ )*  polar(1.0,-2*PI*i*j/ts);
+			}
+				*ptrw++;
+		}
+	}
 
+	gen_arr  multi_dft(int n){
+		unsigned int ts=this->shape[0];
+		gen_arr<T> w (vector<unsigned int > (1,ts));
+		T *ptrw = w.arr.get() ;
+		
+		int n_4=ts/n;
+		thread workers[n];
+		T *ptr_mat = this->arr.get() + this->offset;
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_dft_helper,ptrw,ptr_mat,i*n_4,i*n_4+n_4,ts);
+			ptrw+=n_4;
+		}
+		// int n_4_1=ts-(n-1)*n_4;
+		workers[n-1]=thread(&gen_arr<T>::multi_dft_helper,ptrw,ptr_mat,(n-1)*n_4,ts,ts);
+		for (int i = 0; i < n; ++i)
+			workers[i].join();
+		return  w;
+	}
 
+	static void multi_dft2d_helper(T* ptrw,T* ptr_mat,int start,int end,int s1,int s2){
+		double powe=-2.0*PI;
+		double mn = s1*s2*1.0;
+		double i_by_s1,j_by_s2;
+		for (int i = start; i < end; ++i)
+		{	for (int j = 0; j < s2; ++j)
+			{	*ptrw=0;
+				i_by_s1=i*1.0/s1;
+				j_by_s2=j*1.0/s2;
+				// T * ptr_mat = this->arr.get() + offset;
+				T* ptr_mat1=ptr_mat;
+				for(int k=0;k<s1;k++){
+					for(int l=0;l<s2;l++){
+						*ptrw+= (* ptr_mat1++ ) *polar(1.0,powe*(i_by_s1*k+j_by_s2*l));
+					}
+				}
+				*ptrw/=sqrt(mn);
+				*ptrw++;
+			}
+		}
+	}
+	gen_arr multi_dft_2d(int n){
+		unsigned int s1=this->shape[0];
+		unsigned int s2=this->shape[1];
+		gen_arr<T> w (this->shape);
+		T *ptrw = w.arr.get() ;
+		int n_4=s1/n;
+		thread workers[n];
+		int ns2=n_4*s2;
+		T *ptr_mat = this->arr.get() + this->offset;
+		for (int i = 0; i < n-1; ++i)
+		{	
+			workers[i]=thread(&gen_arr<T>::multi_dft2d_helper,ptrw,ptr_mat,i*n_4,i*n_4+n_4,s1,s2);
+			ptrw+=ns2;
+		}
+		workers[n-1]=thread(&gen_arr<T>::multi_dft2d_helper,ptrw,ptr_mat,(n-1)*n_4,s1,s1,s2);
+		for (int i = 0; i < n; ++i)
+			workers[i].join();
+		return w;
+	}
+
+	T element_abs_sum_for_check(){
+		register T sum = 0;
+		T *ptrw = this->arr.get() + this->offset;
+		int size = this->cumulative_shape[0] * this->shape[0];
+		for (int i = 0; i < size; i++)
+			sum += abs(*ptrw++);
+		return sum;
+	}
 };
 
 
@@ -1212,47 +1526,15 @@ public:
 
 
 int main(int argc, char* argv[]){
-	
-	// vector<unsigned int > shape_dft;
-	// shape_dft.push_back(4);
-	// // shape_dft.push_back(1);
-	// gen_arr<complex<double> > X =  (shape_dft);
-	// X[0].getval()= 1;
-    // X[1].getval()= complex<double >(2,-1);
-    // X[2].getval()= complex<double >(0,-1);
-    // X[3].getval()= complex<double >(-1,2);
-	// // cout << "X's dump: \n" << X.str()<< endl;
-	// auto t_stamp01 = chrono::high_resolution_clock::now();
-	// gen_arr<complex< double > > ans = X.fft();
-	// gen_arr<complex< double > > ans = X.dft();
-	// auto t_stamp02 = chrono::high_resolution_clock::now();
-	// auto time_021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
-	// cout<<ans.str()<<endl;
-	// cout<<ans[0].getval()<<endl;
-	// cout<<ans[1].getval()<<endl;
-	// cout<<ans[2].getval()<<endl;
-	// cout<<ans[3].getval()<<endl;
-	// // cout<<ans[0].getval()<<endl;
-	// cout<<"tim taken "<< time_021<<endl;
-	// vector<complex<double> > temp = X.gen1_to_vector();
 
-	// for(int i=0;i<temp.size();i++)
-	// 	cout<<temp[i]<<endl;
-	
-	// fft2( temp,0,4);
-
-
-	// for(int i=0;i<temp.size();i++)
-	// 	cout<<temp[i]<<endl;?
-
-
+	vector<unsigned int> shape0;
 	vector<unsigned int> shape1;
-	shape1.push_back(600);
-	shape1.push_back(600);
-	shape1.push_back(500);
-	shape1.push_back(5);
+	shape0.push_back(60);
+	shape0.push_back(60);
+	shape0.push_back(50);
+	shape0.push_back(50);
 
-	gen_arr<int > v(shape1,(0.0,0.0));
+	gen_arr<int > v0(shape0,(0.0,0.0));
 
 	// int temp = 0;
 	// for(int i = 0; i < 600; i++){
@@ -1266,7 +1548,7 @@ int main(int argc, char* argv[]){
 	// 	}
 	// }
 
-	v[1][1][1][1].getval() = -58;
+	v0[1][1][1][1].getval() = -58;
 	
 
 	// v[1][2].getval()=70;
@@ -1283,10 +1565,10 @@ int main(int argc, char* argv[]){
 	// v[4][4].getval()=150;
 
 	// gen_arr<complex<double> > ans = v.dft_2();
-	int aa = v.min_value(1);
-	int ab = v.max_value(1);
+	int aa = v0.min_value(1);
+	int ab = v0.max_value(1);
 
-	gen_arr< int> ans = v.mean(200,2);
+	gen_arr< int> ans = v0.mean(200,2);
 
 	// cout<<ans.shape<<endl;
 	cout<<aa<<endl<<ab<<endl;
@@ -1294,59 +1576,107 @@ int main(int argc, char* argv[]){
 	// cout<<ans.str();
 
 
+	vector<unsigned int> shape2;
+	shape1.push_back(2);
+	shape1.push_back(3);
+	shape2.push_back(3);
+	shape2.push_back(4);
 
+	gen_arr<int> v(shape1,0);
+	gen_arr<int> vv(shape2,0);
 
+	v[1][2].getval()= 7;
+	v[1][0].getval()=8;
+	v[1][1].getval()=9;
+	v[0][2].getval()=9;
+	v[0][1].getval()=0;
+	v[0][0].getval()=1;
+	vv[1][2].getval()=1;
+	vv[1][3].getval()=2;
+	vv[1][1].getval()=3;
+	vv[1][2].getval()=3;
+	vv[1][3].getval()=4;
+	vv[1][1].getval()=5;
+	
+	cout<<v.str();
+	cout<<vv.str();
+	cout<<v.matmul(vv).str();
+	
+	// gen_arr<complex<double> > ans = v.dft_2();
+	// gen_arr<complex<double> > ans2 = ans.dft_2();
+	// ans = v[1];
+	// ans = v;
 
+	// cout<<ans.str();
+	
+	// cout<<"sdsdd \n\n\n\n";
+	// // ans = v;
+	
+	// // cout<<ans.str();
+	// cout<<v[4].str();
+	// cout<<"sdsdd \n\n\n\n";
+	// ans[0] = v[4];
+	// cout<<"sdsdd \n\n\n\n";
+	// cout<<ans[0].str();
 
+	// cout<<ans2[7].str();
+	// cout<<"sdsdd \n\n\n\n";
+	// ans[0] = ans2[7];
+	// cout<<ans[0].str();
+	// cout<<ans[1].str();
+	// cout<<ans[2].str();
+	// cout<<ans[3].str();
 
 	// int num_thr = 4;
 	// if (argc >= 2){
 	// 	num_thr = atoi(argv[1]);
 	// }
-	// int shapearr[2] = {4,1};
+	// // int shapearr[2] = {4,1};
 	// vector<vector<unsigned int> > shapes;
 	// shapes.push_back(vector<unsigned int> ());
 	// shapes[0].push_back(1000);shapes[0].push_back(1000);
 	// shapes.push_back(vector<unsigned int> ());
-	// shapes[1].push_back(1000);shapes[1].push_back(1000);
+
+	// shapes[1].push_back(100);shapes[1].push_back(100);
+	
 	// shapes.push_back(vector<unsigned int> ());
-	// shapes[2].push_back(3);shapes[2].push_back(4);
-	// // shapes[0].push_back(1000);shapes[0].push_back(4000);
-	// // vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
+	// shapes[2].push_back(3);shapes[2].push_back(3);
+	// // // shapes[0].push_back(1000);shapes[0].push_back(10000);
+	// // // vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
 	// auto t_stamp01 = chrono::high_resolution_clock::now();
-	// gen_arr<int> a0(shapes[0], 9), b0(shapes[0], 2);
+	// gen_arr<int > a0(shapes[0], 9), b0(shapes[0], 2);
+	// // gen_arr<int> a0(shapes[0], 9), b0(shapes[0], 2);
 	// auto t_stamp02 = chrono::high_resolution_clock::now();
-	// gen_arr<int> c0 = a0 + b0;
+	// // gen_arr<int> c0 = a0 + b0;
 	// auto t_stamp03 = chrono::high_resolution_clock::now();
 	// auto alloc_time021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
 	// auto alloc_time032 = chrono::duration_cast<chrono::duration<double>>(t_stamp03 - t_stamp02).count();
 
-	// cout << "c0.shape" << vec_to_string(c0.get_shape()) << endl;
+	// // cout << "c0.shape" << vec_to_string(c0.get_shape()) << endl;
 	// printf("Time(in seconds): Alloc:%f;\tComputation(add):%f;\n", alloc_time021, alloc_time032);
 
 	// auto t_stamp11 = chrono::high_resolution_clock::now();
-	// gen_arr<int> a1(shapes[0], 3), b1(shapes[0], 7);
+	// gen_arr<complex<double>> a1(shapes[1], 3), b1(shapes[1], 7);
+	// a1[0][0].getval() = 4;b1[1][0].getval() = 0;
 	// auto t_stamp12 = chrono::high_resolution_clock::now();
-	// /* 
-	// auto c1 = a1.matmul(b1);
-	// auto c1 = a1.multi_threaded_add2(b1, num_thr);
-	// auto c1 = a1.multi_threaded_op2(b1, num_thr, "add");
-	// auto c1 = a1.multi_threaded_add(b1, num_thr); 
-	// */
-	// auto c1 = a1.multi_threaded_add(b1, num_thr);
-	// // printf("c2 calculated\n");
+	// // auto c1 = a1.matmul4(b1);
+	// auto c1 = a1.dft_2();
+	// // auto c1 = a1.matmul_mt(b1, num_thr);
+	// // auto c1 = a1.multi_threaded_add2(b1, num_thr);
+	// // auto c1 = a1.multi_threaded_op2(b1, num_thr, "add");
+	// // auto c1 = a1.multi_threaded_add(b1, num_thr); 
+	// // auto c1 = a1.multi_threaded_add(b1, num_thr);
+	// // // printf("c2 calculated\n");
     // auto t_stamp13 = chrono::high_resolution_clock::now();
 	// auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
 	// auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
-	// // t_stamp22 = chrono::high_resolution_clock::now();
-	// // c2 = a2.add(b2);
-	// // t_stamp23 = chrono::high_resolution_clock::now();
-	// // // auto alloc_time321 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
-	// // auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
-	// cout << "fooo\n";
-	// cout << "c1.shape" << vec_to_string(c1.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation(mult add):%f;\n", alloc_time121, alloc_time132);
+	// // cout << "fooo\n";
+	// // cout << "c1.shape" << vec_to_string(c1.get_shape()) << endl;
+	// printf("Time(in seconds): Alloc:%f;\tComputation(matmul):%f;\n", alloc_time121, alloc_time132);
 
+	// cout << "a1's dump: \n" << a1.str() << endl; // a2.dummy_dump()
+	// cout << "b1's dump: \n" << b1.str() << endl;
+	// cout << "c1's dump: \n" << c1.str() << endl;
 	// auto t_stamp21 = chrono::high_resolution_clock::now();
 	// gen_arr<int> a2(shapes[1], 9), b2(shapes[1], 2);
 	// a2[2][0].getval() = 0;
