@@ -308,11 +308,11 @@ public:
 	long get_use_cnt(){
 		return this->arr.use_count();
 	}
-	gen_arr & multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
+	gen_arr multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
 		// cout << "mto start use_cnt: " << this->arr.use_count() << endl;
 		assert(this->shape == rhs.shape);
-		gen_arr<T> *res = new gen_arr(this->shape);
-		// gen_arr<T> res(this->shape);
+		// gen_arr<T> *res = new gen_arr(this->shape);
+		gen_arr<T> res(this->shape);
 		// cout << "######mto start res use_cnt: " << res->arr.use_count() << endl;
 
 		int num_elem = this->arr_len;
@@ -323,7 +323,7 @@ public:
 		thread workers[num_thrs];
 		// gen_arr<T> res(this->shape);
 		T *lhsptr, *rhs0ptr, *rhs1ptr;
-		lhsptr = res->arr.get();
+		lhsptr = res.arr.get();
 		rhs0ptr = this->arr.get()+this->offset;
 		rhs1ptr = rhs.arr.get()+rhs.offset;
 		function<void(T*,T*, T*, unsigned int)> fun_ptr;
@@ -357,20 +357,72 @@ public:
 		}
 		// cout << "######mto end res use_cnt: " << res->arr.use_count() << endl;
 		// cout << "mto end use_cnt: " << this->arr.use_count() << endl;
-		return *res;
-	}
-	gen_arr multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
-		gen_arr<T> res = multi_threaded_op2(rhs, num_thr, "add");
-		// cout << "in mta: res.use_cnt = " << res.get_use_cnt() << endl;
+		// return *res;
 		return res;
 	}
-	gen_arr & multi_threaded_sub(gen_arr<T> &rhs, int num_thr){
+	// gen_arr multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
+	// 	// cout << "mto start use_cnt: " << this->arr.use_count() << endl;
+	// 	assert(this->shape == rhs.shape);
+	// 	gen_arr<T> *res = new gen_arr(this->shape);
+	// 	// gen_arr<T> res(this->shape);
+	// 	// cout << "######mto start res use_cnt: " << res->arr.use_count() << endl;
+
+	// 	int num_elem = this->arr_len;
+	// 	int load_per_thr = num_elem / num_thr;
+	// 	int num_left = num_elem - load_per_thr * num_thr;
+	// 	int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+	// 	// printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+	// 	thread workers[num_thrs];
+	// 	// gen_arr<T> res(this->shape);
+	// 	T *lhsptr, *rhs0ptr, *rhs1ptr;
+	// 	lhsptr = res->arr.get();
+	// 	rhs0ptr = this->arr.get()+this->offset;
+	// 	rhs1ptr = rhs.arr.get()+rhs.offset;
+	// 	function<void(T*,T*, T*, unsigned int)> fun_ptr;
+	// 	// void (fun_ptr(T*,T*, T*, unsigned int));
+	// 	// T* lhs, T* rhs0, T* rhs1, unsigned int num_elems
+	// 	if (name=="add"){
+	// 		fun_ptr= gen_arr<T>::add_helper;
+	// 	}
+	// 	else if (name=="sub"){
+	// 		fun_ptr = gen_arr<T>::sub_helper;
+	// 	}
+	// 	else if (name=="mul"){
+	// 		fun_ptr = gen_arr<T>::mul_helper;
+	// 	}
+	// 	else {
+	// 		fun_ptr = gen_arr<T>::div_helper;
+	// 	}
+	// 	for (int i = 0; i < num_thr; i++){
+	// 		workers[i] = thread(fun_ptr, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+	// 		// workers[i] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, load_per_thr);
+	// 		lhsptr+= load_per_thr;
+	// 		rhs0ptr += load_per_thr;
+	// 		rhs1ptr += load_per_thr;
+	// 	}
+	// 	if (num_left > 0){
+	// 		workers[num_thr] = thread(&adh<T>, lhsptr, rhs0ptr, rhs1ptr, num_left);
+	// 		// workers[num_thr] = thread(&gen_arr<T>::add_helper, lhsptr, rhs0ptr, rhs1ptr, num_left);
+	// 	}
+	// 	for (int i = 0; i < num_thrs; i++){
+	// 		workers[i].join();
+	// 	}
+	// 	// cout << "######mto end res use_cnt: " << res->arr.use_count() << endl;
+	// 	// cout << "mto end use_cnt: " << this->arr.use_count() << endl;
+	// 	return *res;
+	// }
+	gen_arr multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
+		return multi_threaded_op2(rhs, num_thr, "add");
+		// cout << "in mta: res.use_cnt = " << res.get_use_cnt() << endl;
+		// return res;
+	}
+	gen_arr  multi_threaded_sub(gen_arr<T> &rhs, int num_thr){
 		return multi_threaded_op2(rhs, num_thr, "sub");
 	}
-	gen_arr & multi_threaded_mul(gen_arr<T> &rhs, int num_thr){
+	gen_arr  multi_threaded_mul(gen_arr<T> &rhs, int num_thr){
 		return multi_threaded_op2(rhs, num_thr, "mul");
 	}
-	gen_arr & multi_threaded_div(gen_arr<T> &rhs, int num_thr){
+	gen_arr  multi_threaded_div(gen_arr<T> &rhs, int num_thr){
 		return multi_threaded_op2(rhs, num_thr, "div");
 	}
 
@@ -995,15 +1047,16 @@ public:
 			lhsptr -= ts0 * ts1 - 1;
 		}
 	}
-	gen_arr & transpose_mt(int num_thr){
+	gen_arr transpose_mt(int num_thr){
 		assert(this->ndim == 2);
 		assert(num_thr > 0);
-		gen_arr<T> *rest = new gen_arr<T>;
-		gen_arr<T> &res = *rest; // actual copying doesnt happen
-		gen_arr<T> &me = *this;
+		// gen_arr<T> *rest = new gen_arr<T>;
+		// gen_arr<T> &res = *rest; // actual copying doesnt happen
+		// gen_arr<T> &me = *this;
 		vector<unsigned int> newshape = shape;
 		newshape[0] = this->shape[1];
 		newshape[1] = this->shape[0];
+		gen_arr<T> res;
 		res.init(newshape, true);
 		res.cumulative_shape = ret_cum_shape(res.shape);
 		T *lhsptr = res.arr.get() + res.offset, *rhs0ptr = this->arr.get() + this->offset;
@@ -1032,11 +1085,12 @@ public:
 		}
 		return res;
 	}
-	gen_arr & transpose(){
+	gen_arr transpose(){
 		assert(this->ndim == 2);
-		gen_arr<T> *rest = new gen_arr<T>;
-		gen_arr<T> &res = *rest; // actual copying doesnt happen
+		// gen_arr<T> *rest = new gen_arr<T>;
+		// gen_arr<T> &res = *rest; // actual copying doesnt happen
 		gen_arr<T> &me = *this;
+		gen_arr<T> res;
 		vector<unsigned int> newshape = shape;
 		newshape[0] = this->shape[1];
 		newshape[1] = this->shape[0];
@@ -1066,25 +1120,17 @@ public:
 		this->ndim = this->shape.size();
 		return;
 	}
-	gen_arr(gen_arr const & rhs){
-
-		int prev_arr_len = this->arr_len;
-		bool isparent = sizeof(this->arr)/sizeof(T) == this->arr_len;
-		// if(prev_arr_len != 0 || !isparent){
-		// 	assert(this->shape == rhs.shape);
-		// 	memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
-		// 	// return * this;
-		// }
-		this->shape = rhs.shape;
-		this->cumulative_shape = rhs.cumulative_shape;
-		this->ndim = rhs.ndim;
-		this->arr_len = rhs.arr_len;
-		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
-		memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
-		this->offset = 0;
-
-		//new	
-	}
+	// gen_arr(gen_arr const & rhs){
+	// 	this->shape = rhs.shape;
+	// 	this->cumulative_shape = rhs.cumulative_shape;
+	// 	this->ndim = rhs.ndim;
+	// 	this->arr_len = rhs.arr_len;
+	// 	this->arr = shared_ptr<T>(new T[this->arr_len], std::default_delete<T>());
+	// 	this->offset = 0;
+	// 	memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
+	// 	//new
+	// 	// cout << "rhs.uc = " << rhs.arr.use_count() << endl;
+	// }
 	gen_arr & operator=(gen_arr const & rhs){
 
 		int prev_arr_len = this->arr_len;
@@ -1101,8 +1147,8 @@ public:
 		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
 		memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
 		this->offset = 0;
+		// cout << "rhs.uc = " << rhs.arr.use_count() << endl;
 		return *this;
-
 		//new	
 	}
 	gen_arr& operator[](int index){ // see getval
@@ -1133,16 +1179,16 @@ public:
 		assert(this->ndim == 0);
 		return this->arr.get()[this->offset];
 	}
-	gen_arr & matmul(gen_arr<T> & rhs){
+	gen_arr matmul(gen_arr<T> & rhs){
 		assert(this->ndim == 2 && rhs.ndim == 2);
 		int m1 = this->shape[0], n1 = this->shape[1];
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
 		assert(n1 == m2);
 		vector<unsigned int> new_shape;
 		new_shape.push_back(m1); new_shape.push_back(n2);
-		gen_arr<T> *ress = new gen_arr<T>;
-		ress->init(new_shape, true);
-		gen_arr<T> &res = *ress;
+		// gen_arr<T> *ress = new gen_arr<T>;
+		gen_arr<T> res;
+		res.init(new_shape, true);
 		// printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
@@ -1163,16 +1209,64 @@ public:
 		}
 		return res;
 	}
-	gen_arr & matmul4(gen_arr<T> &rhs){ // 3X faster than matmul
+	gen_arr matmul5(gen_arr<T> & rhs, int  block_size){
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2 && block_size <= n1);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1); new_shape.push_back(n2);
+		gen_arr<T> res;// = new gen_arr<T>;
+		res.init(new_shape, true);
+
+		fill_n(res.arr.get(), res.arr_len, 0);
+
+		// gen_arr<T> &res = *ress;
+		// printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		T *ptrlhs_ = ptrlhs;
+		ptrlhs = ptrlhs + res.offset;
+		// cout<<"started\n";
+		for(int jj=0;jj<n2;jj+= block_size){
+			// cout<<"jj "<<jj<<endl;
+	        for(int kk=0;kk<n1;kk+= block_size){
+				// cout<<"kk "<<kk<<endl;
+					ptrlhs_ = ptrlhs;
+	                for(int i=0;i<m1;i++){
+						// cout<<"i "<<i<<endl;
+	                        for(int j = jj; j< min(jj+block_size,n2); j++){
+									// cout<<"j "<<j<<endl;
+	                                register T temp = 0;
+	                                for(int k = kk; k<min(n1,kk+block_size); k++){
+											// cout<<"k "<<k<<endl;
+											// usleep(1);	
+	                                		temp+= ptrrhs0[rhs0off+i*rhs0sh0+k]*ptrrhs1[rhs1off+k*rhs1sh0+j];
+	                                        // temp += a[i][k]*b[k][j];
+	                                }
+	                                * ptrlhs_+=temp;
+	                                * ptrlhs_ ++;
+	                            // c[i][j] += temp;
+	                        }
+	                }
+	        }
+		}
+		return res;
+	}
+	gen_arr matmul4(gen_arr<T> &rhs){ // 3X faster than matmul
 		assert(this->ndim == 2 && rhs.ndim == 2);
 		int m1 = this->shape[0], n1 = this->shape[1];
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
 		assert(n1 == m2);
 		vector<unsigned int> new_shape;
 		new_shape.push_back(m1); new_shape.push_back(n2);
-		gen_arr<T> *ress = new gen_arr<T>;
-		ress->init(new_shape, true);
-		gen_arr<T> &res = *ress;
+		gen_arr<T> res;// = new gen_arr<T>;
+		res.init(new_shape, true);
+		// gen_arr<T> &res = *ress;
 		// gen_arr<T> rhstpose = rhs.transpose_mt(4);
 		gen_arr<T> rhstpose = rhs.transpose();
 		int rhs0off = this->offset, rhs1off = rhstpose.offset;
@@ -1218,9 +1312,9 @@ public:
 		vector<unsigned int> new_shape;
 		new_shape.push_back(m1);
 		new_shape.push_back(n2);
-		gen_arr<T> *ress = new gen_arr<T>;
-		ress->init(new_shape, true);
-		gen_arr<T> &res = *ress;
+		// gen_arr<T> *ress = new gen_arr<T>;
+		gen_arr<T> res;// = *ress;
+		res.init(new_shape, true);
 		gen_arr<T> rhstpose = rhs.transpose_mt(num_thr);
 		int rhs0off = this->offset, rhs1off = rhstpose.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhstpose.cumulative_shape[0];
@@ -1639,6 +1733,9 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 	else if (fname=="matmul4"){
 		gen_arr<int> c3 = a3.matmul4(b3);
 	}
+	else if (fname=="matmul5"){
+		gen_arr<int> c3 = a3.matmul5(b3, 64);
+	}
 	else if (fname=="matmul_mt"){
 		gen_arr<int> c3 = a3.matmul_mt(b3, num_thr);
 	}
@@ -1662,6 +1759,10 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 double ourAverageTimer(string fname, unsigned int size, unsigned int num_itr=1, unsigned int num_thr=1){
 	if (num_itr < 1) num_itr = 1;
 	double sum = 0.0;
+	if (size > 700 && num_itr > 60 && fname=="matmul"){
+		num_itr /= 10;
+		cout << "new num_itr = " << num_itr << endl;
+	}
 	for (unsigned int i = 0; i < num_itr; i++){
 		sum += ourTimer(fname, size, num_thr);
 	}
@@ -1669,17 +1770,22 @@ double ourAverageTimer(string fname, unsigned int size, unsigned int num_itr=1, 
 	return sum / num_itr;
 }
 
-int driver(string querytype, int num_iter=1000){
+int driver(string querytype, int num_iter=100){
 	cout << "driver: " << querytype << endl;
-	unsigned int sizes[4] = {10, 500, 1000, 10000};
+	// unsigned int sizes[4] = {10, 500, 1000, 10000};
+	unsigned int sizes[6] = {10, 100, 200, 400, 700, 1000};
+	// unsigned int sizes[6] = {10, 500, 1500, 2500, 3500, 5000};
+
 	if (querytype == "add" || querytype == "div" || querytype == "tpose"){
 		string qmt = querytype + "_mt";
 		ofstream file;
 		file.open(querytype+".csv", ios::trunc | ios::out);
-		for (int i = 0; i < 4; i++){
-			cout << "i = " << i << endl;
+		for (int i = 0; i < 6; i++){
+			// cout << "i = " << i << endl;
+			printf("size[%d] = %d\n", i, sizes[i]);
 			file << sizes[i] << ",";
 			double t = ourAverageTimer(querytype, sizes[i], num_iter);
+			// // cout << "mt start. query=" << querytype << endl;
 			file << t << ",";
 			t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
 			file << t << ",";
@@ -1688,34 +1794,41 @@ int driver(string querytype, int num_iter=1000){
 			t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
 			file << t << ",";
 			t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
-			// file << t << ",";
+			file << t;
 			file << "\n";
 		}
 		file.close();
 	}
 	else if (querytype == "matmul"){
 		string qmt = querytype + "_mt";
-		string q2 = querytype + "2", q3 = querytype + "3", q4 = querytype + "4";
+		string q2 = querytype + "2", q3 = querytype + "3", q4 = querytype + "4", q5 = querytype + "5";
 		ofstream file;
-		file.open(querytype+".csv", ios::trunc | ios::out);
-		for (int i = 0; i < 3; i++){
+		file.open(querytype+"foo.csv", ios::trunc | ios::out);
+		for (int i = 0; i < 6; i++){
 			printf("driver: matmul: size: %d\n", sizes[i]);
 			file << sizes[i] << ",";
 			double t = ourAverageTimer(querytype, sizes[i], num_iter);
 			file << t << ",";
-			t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
-			file << t << ",";
-			t = ourAverageTimer(qmt, sizes[i], num_iter, 4);
-			file << t << ",";
-			t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
-			file << t << ",";
-			t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
-			file << t << ",";
+			// t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
+			// file << t << ",";
+			// t = ourAverageTimer(qmt, sizes[i], num_iter, 4);
+			// file << t << ",";
+			// t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
+			// file << t << ",";
+			// t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
+			// file << t << ",";
 			t = ourAverageTimer(q2, sizes[i], num_iter);
 			file << t << ",";
 			t = ourAverageTimer(q3, sizes[i], num_iter);
 			file << t << ",";
 			t = ourAverageTimer(q4, sizes[i], num_iter);
+			file << t << ",";
+			if (sizes[i] < 64){
+				t = ourAverageTimer(querytype, sizes[i], num_iter);
+			}
+			else{
+				t = ourAverageTimer(q5, sizes[i], num_iter);
+			}
 			file << t;
 			// file << t << "#";
 			file << "\n";
@@ -1729,15 +1842,16 @@ int debug(){
 	shape.push_back(3);
 	shape.push_back(4);
 	gen_arr<int> a3(shape, 9), b3(shape, 2);
-	gen_arr<int> c3 = a3.add(b3);
+	gen_arr<int> c3 = a3.multi_threaded_add(b3, 4);
+	cout << "a3 = \n" << a3.str() << "\nb3=\n" << b3.str() << "\nc3=\n" << c3.str() << endl;
 }
 
 int main(){
 	// debug();
 	// return 0;
-	driver("add");
-	driver("div");
-	driver("tpose");
+	// driver("add");
+	// driver("div");
+	// driver("tpose");
 	driver("matmul");
 }
 

@@ -1,0 +1,48 @@
+gen_arr & matmul_block_size(gen_arr<T> & rhs, int  block_size){
+		assert(this->ndim == 2 && rhs.ndim == 2);
+		int m1 = this->shape[0], n1 = this->shape[1];
+		int m2 = rhs.shape[0], n2 = rhs.shape[1];
+		assert(n1 == m2 && block_size <= n1);
+		vector<unsigned int> new_shape;
+		new_shape.push_back(m1); new_shape.push_back(n2);
+		gen_arr<T> *ress = new gen_arr<T>;
+		ress->init(new_shape, true);
+
+		fill_n(ress->arr.get(), ress->arr_len, 0);
+
+		gen_arr<T> &res = *ress;
+		// printf("matmul: res defined\n");
+		int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		T *ptrlhs_ = ptrlhs;
+		ptrlhs = ptrlhs + res.offset;
+		// cout<<"started\n";
+		for(int jj=0;jj<n2;jj+= block_size){
+			// cout<<"jj "<<jj<<endl;
+	        for(int kk=0;kk<n1;kk+= block_size){
+				// cout<<"kk "<<kk<<endl;
+					ptrlhs_ = ptrlhs;
+	                for(int i=0;i<m1;i++){
+						// cout<<"i "<<i<<endl;
+	                        for(int j = jj; j< min(jj+block_size,n2); j++){
+									// cout<<"j "<<j<<endl;
+	                                register T temp = 0;
+	                                for(int k = kk; k<min(n1,kk+block_size); k++){
+											// cout<<"k "<<k<<endl;
+											// usleep(1);	
+	                                		temp+= ptrrhs0[rhs0off+i*rhs0sh0+k]*ptrrhs1[rhs1off+k*rhs1sh0+j];
+	                                        // temp += a[i][k]*b[k][j];
+	                                }
+	                                * ptrlhs_+=temp;
+	                                * ptrlhs_ ++;
+	                            // c[i][j] += temp;
+	                        }
+	                }
+	        }
+		}
+		return res;
+	}
