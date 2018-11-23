@@ -1408,6 +1408,251 @@ public:
 		return res;
 	}
 
+	static void conv_helper(int start, int end, T* ptrlhs, T* ptrrhs0, T* ptrrhs1, 
+		vector<unsigned int>lhs_shape, vector<unsigned int>rhs0_shape, vector<unsigned int>rhs1_shape, 
+		vector<unsigned long long int>lhs_cush, vector<unsigned long long int>rhs0_cush, vector<unsigned long long int>rhs1_cush, 
+		int lhsoff, int rhs0off, int rhs1off, int lhs_len, int rhs0_len, int rhs1_len, int ndim)
+	{
+		// cout<<"conv_helper called"<<endl;
+		if(rhs0_len < rhs1_len){
+			int lhs_i[ndim], rhs1_i[ndim], rhs1_i1[ndim];
+			
+			for (int i = start; i < end; ++i)
+			{
+				int indx = i;
+				for (int l = 0; l < ndim; ++l)
+				{
+					lhs_i[l] = indx/lhs_cush[l];
+					indx = indx % lhs_cush[l];
+					rhs1_i[l] = lhs_i[l] - ((rhs0_shape[l]-1));
+					rhs1_i1[l] = rhs1_i[l];
+				}
+				// for(ii = 0; ii<ndim; ii++){
+
+				// }
+				for (int j = 0; j < rhs0_len; ++j)
+				{
+					if(j != 0){
+						// int ll;
+						int state = 0;
+						for (int ll = 0; ll < ndim; ++ll)
+						{
+							// cout<<"rhs1_cush[ll] = "<<rhs1_cush[ll]<<endl;
+							if(state == 0){
+								if(j % rhs0_cush[ll] == 0){
+									rhs1_i[ll] += 1;
+									// break;
+									state = 1;
+								}
+							}
+							else if(state == 1){
+								rhs1_i[ll] = rhs1_i1[ll];
+							}
+						}
+					}
+					int kk = 0;
+					int k = 0;
+					for (kk = 0; kk < ndim; ++kk)
+					{
+						// lhs_i[l] = indx/lhs_cush[l];
+						// indx = indx % lhs_cush[l];
+						// rhs1_i[l] = lhs_i[l] - ((rhs0_shape[l]-1));
+						if(rhs1_i[kk] < 0 || rhs1_i[kk] >= rhs1_shape[kk]){
+							break;
+						}
+						k += rhs1_i[kk]*rhs1_cush[kk];
+					}
+
+					// for(int k =k_start; k < rh1_len; ++k){
+					
+					if(kk >= ndim){
+						*(ptrlhs+lhsoff+i) += ptrrhs1[rhs1off+k]*ptrrhs0[rhs0off+j];
+					}
+					// k++;
+					// }
+				}
+			}
+		}
+		else if(rhs0_len >= rhs1_len){
+			// cout<<"here11111"<<endl;
+			int lhs_i[ndim], rhs0_i[ndim], rhs0_i1[ndim];
+			
+			for (int i = start; i < end; ++i)
+			{
+				int indx = i;
+				for (int l = 0; l < ndim; ++l)
+				{
+					lhs_i[l] = indx/lhs_cush[l];
+					indx = indx % lhs_cush[l];
+					rhs0_i[l] = lhs_i[l] - (rhs1_shape[l]-1);
+					rhs0_i1[l] = rhs0_i[l];
+					// k += rhs1_i[l]*rhs1_cush[l];
+				}
+				// cout<<rhs0_i[0]<<" "<<rhs0_i[1]<<endl;
+				// for(ii = 0; ii<ndim; ii++){
+
+				// }
+				for (int j = 0; j < rhs1_len; ++j)
+				{
+					if(j != 0){
+						int state = 0;
+						for (int ll = 0; ll < ndim; ++ll)
+						{
+							// cout<<"rhs1_cush[ll] = "<<rhs1_cush[ll]<<endl;
+							if(state == 0){
+								if(j % rhs1_cush[ll] == 0){
+									rhs0_i[ll] += 1;
+									// break;
+									state = 1;
+								}
+							}
+							else if(state == 1){
+								rhs0_i[ll] = rhs0_i1[ll];
+							}
+						}
+					}
+					int kk = 0;
+					int k = 0;
+					for (kk = 0; kk < ndim; ++kk)
+					{
+						// lhs_i[l] = indx/lhs_cush[l];
+						// indx = indx % lhs_cush[l];
+						// rhs1_i[l] = lhs_i[l] - ((rhs0_shape[l]-1));
+						if(rhs0_i[kk] < 0 || rhs0_i[kk] >= rhs0_shape[kk]){
+							break;
+						}
+						k += rhs0_i[kk]*rhs0_cush[kk];
+					}
+
+					// for(int k =k_start; k < rh1_len; ++k){
+					// cout<<rhs0_i[0]<<" "<<rhs0_i[1]<<endl;
+					// cout<<"kk = "<<kk<<endl;
+					if(kk >= ndim){
+						// cout<<"i = "<<i<<endl;
+						*(ptrlhs+lhsoff+i) += ptrrhs0[rhs0off+k]*ptrrhs1[rhs1off+j];
+					}
+					// k++;
+					// }
+				}
+			}
+		}
+	}
+
+	gen_arr multi_conv(gen_arr<T> & rhs, int num_thr)
+	{
+		int rhs0_ndim = this->ndim;
+		int rhs1_ndim = rhs.ndim;
+		assert(rhs0_ndim == rhs1_ndim);
+		vector<unsigned int> new_shape;
+		vector<unsigned int> rhs0_shape = this->shape;
+		vector<unsigned int> rhs1_shape = rhs.shape;
+		for (int i = 0; i < rhs0_ndim; ++i)
+		{
+			new_shape.push_back(rhs0_shape[i] + rhs1_shape[i] - 1);
+		}
+		gen_arr<T> res(new_shape, 0, true, true);
+		// printf("conv: res defined\n");
+		// int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset, lhsoff = res.offset;
+		vector<unsigned long long int> rhs0_cush = this->cumulative_shape, rhs1_cush = rhs.cumulative_shape, lhs_cush = res.cumulative_shape;
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		// ptrlhs = ptrlhs + res.offset;
+		int rhs1_len = rhs.arr_len;
+		int rhs0_len = this->arr_len;
+		int lhs_len = res.arr_len;
+
+		// int num_col = this->shape[0];
+		int load_per_thr = lhs_len / num_thr;
+		int num_left = lhs_len - load_per_thr * num_thr;
+		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
+		// printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
+		thread workers[num_thrs];
+		// int ts0 = this->shape[0];
+		// int ts1 = this->shape[1];
+		int start = 0;
+		int end = 0;
+		for (int i = 0; i < num_thr; i++){
+			// workers[i] = thread(&gen_arr<T>::transpose_helper, lhsptr, rhs0ptr, ts0, ts1, load_per_thr);
+			end += load_per_thr;
+			workers[i] = thread(&gen_arr<T>::conv_helper, start, end, ptrlhs, ptrrhs0, ptrrhs1, 
+				new_shape, rhs0_shape, rhs1_shape, lhs_cush, rhs0_cush, rhs1_cush, lhsoff, rhs0off, rhs1off,
+				lhs_len, rhs0_len, rhs1_len, rhs0_ndim);
+			start = end;
+		}
+		if (num_left > 0){
+			end += num_left;
+			workers[num_thr] = thread(&gen_arr<T>::conv_helper, start, end, ptrlhs, ptrrhs0, ptrrhs1, 
+				new_shape, rhs0_shape, rhs1_shape, lhs_cush, rhs0_cush, rhs1_cush, lhsoff, rhs0off, rhs1off,
+				lhs_len, rhs0_len, rhs1_len, rhs0_ndim);
+			// workers[num_thr] = thread(&gen_arr<T>::transpose_helper, lhsptr, rhs0ptr, ts0, ts1, num_left);
+		}
+		for (int i = 0; i < num_thrs; i++){
+			workers[i].join();
+		}
+		return res;	
+	}
+
+	gen_arr conv(const gen_arr<T> & rhs){
+		int rhs0_ndim = this->ndim;
+		int rhs1_ndim = rhs.ndim;
+		assert(rhs0_ndim == rhs1_ndim);
+		vector<unsigned int> new_shape;
+		vector<unsigned int> rhs0_shape = this->shape;
+		vector<unsigned int> rhs1_shape = rhs.shape;
+		// int m0 = this->shape[0], n0 = this->shape[1];
+		// int m1 = rhs.shape[0], n1 = rhs.shape[1];
+		// assert(n1 == m2);
+		// new_shape.push_back(m1); new_shape.push_back(n2);
+		// vector<unsigned int> new_shape;
+		for (int i = 0; i < rhs0_ndim; ++i)
+		{
+			new_shape.push_back(rhs0_shape[i] + rhs1_shape[i] - 1);
+		}
+		gen_arr<T> res(new_shape, 0, true, true);
+		// printf("conv: res defined\n");
+		// int sum;
+		int rhs0off = this->offset, rhs1off = rhs.offset;
+		vector<unsigned long long int> rhs0_cush = this->cumulative_shape, rhs1_cush = rhs.cumulative_shape, lhs_cush = res.cumulative_shape;
+		// cout << "rhs.cumulative_shape = " << vec_to_string(rhs.cumulative_shape) << endl;
+		// cout << "rhs.shape = " << vec_to_string(rhs.shape) << endl;
+		T *ptrlhs = res.arr.get(), *ptrrhs0 = this->arr.get(), *ptrrhs1 = rhs.arr.get();
+		// ptrlhs = ptrlhs + res.offset;
+		int rhs1_len = rhs.arr_len;
+		int rhs0_len = this->arr_len;
+		// for (int rhs0_i = 0; rhs0_i < count; ++rhs0_i)
+		// {
+		// 	/* code */
+		// }
+		for (int rhs1_indx = 0; rhs1_indx < rhs1_len; ++rhs1_indx)
+		{
+			// int temp1 = *(ptrrhs1+rhs1off+rhs1_indx);
+			// int temp1 = ptrrhs1[rhs1off+rhs1_indx];
+			for (int rhs0_indx = 0; rhs0_indx < rhs0_len; ++rhs0_indx)
+			{
+				// int temp2 = *(ptrrhs0+rhs0off+rhs0_indx);
+				// int temp2 = ptrrhs0[rhs0off+rhs0_indx];
+				// int temp3 = temp1*temp2;
+				// int offset = (rhs1_len-i-1)+j;	// for 1-D
+				int offset = 0;	// for N-D
+				int rhs0_j = rhs0_indx;
+				int rhs1_j = rhs1_indx;
+				for (int k = 0; k < rhs0_ndim; ++k)
+				{
+					int rhs0_i = rhs0_j/rhs0_cush[k];
+					int rhs1_i = rhs1_j/rhs1_cush[k];
+					rhs0_j = rhs0_j % rhs0_cush[k];
+					rhs1_j = rhs1_j % rhs1_cush[k];
+					int lhs_i = (rhs1_shape[k] - rhs1_i - 1) + rhs0_i;
+					offset += lhs_i*lhs_cush[k];
+				}
+				ptrlhs[offset] += ptrrhs1[rhs1off+rhs1_indx]*ptrrhs0[rhs0off+rhs0_indx];
+			}
+		}
+		return res;
+	}
+
 	string str(){
 		cout << "str entered\n";
 		auto prod_vec = prods(shape);
@@ -1745,6 +1990,12 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 	else if (fname=="tpose_mt"){
 		gen_arr<int> c3 = a3.transpose_mt(num_thr);
 	}
+	else if (fname=="conv"){
+		gen_arr<int> c3 = a3.conv(b3);
+	}
+	else if (fname=="multi_conv"){
+		gen_arr<int> c3 = a3.multi_conv(b3, num_thr);
+	}
 	else{
 		return -1.0;
 	}
@@ -1763,6 +2014,10 @@ double ourAverageTimer(string fname, unsigned int size, unsigned int num_itr=1, 
 		num_itr /= 10;
 		cout << "new num_itr = " << num_itr << endl;
 	}
+	else if (size > 50 && num_itr >= 10 && (fname=="conv" || fname=="multi_conv")){
+		num_itr /= 10;
+		cout << "new num_itr = " << num_itr << endl;
+	}
 	for (unsigned int i = 0; i < num_itr; i++){
 		sum += ourTimer(fname, size, num_thr);
 	}
@@ -1773,7 +2028,7 @@ double ourAverageTimer(string fname, unsigned int size, unsigned int num_itr=1, 
 int driver(string querytype, int num_iter=100){
 	cout << "driver: " << querytype << endl;
 	// unsigned int sizes[4] = {10, 500, 1000, 10000};
-	unsigned int sizes[6] = {10, 100, 200, 400, 700, 1000};
+	unsigned int sizes[5] = {11, 21, 51, 101, 201};
 	// unsigned int sizes[6] = {10, 500, 1500, 2500, 3500, 5000};
 
 	if (querytype == "add" || querytype == "div" || querytype == "tpose"){
@@ -1835,6 +2090,42 @@ int driver(string querytype, int num_iter=100){
 		}
 		file.close();
 	}
+	else if (querytype == "conv"){
+		string qmt = "multi_"+querytype;
+		string q2 = querytype;
+		ofstream file;
+		file.open(querytype+".csv", ios::trunc | ios::out);
+		for (int i = 0; i < 5; i++){
+			printf("driver: matmul: size: %d\n", sizes[i]);
+			file << sizes[i] << ",";
+			double t = ourAverageTimer(qmt, sizes[i], num_iter);
+			file << t << ",";
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
+			file << t << ",";
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 4);
+			file << t << ",";
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
+			file << t << ",";
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
+			file << t << ",";
+			t = ourAverageTimer(q2, sizes[i], num_iter);
+			file << t << ",";
+			// t = ourAverageTimer(q3, sizes[i], num_iter);
+			// file << t << ",";
+			// t = ourAverageTimer(q4, sizes[i], num_iter);
+			// file << t << ",";
+			// if (sizes[i] < 64){
+			// 	t = ourAverageTimer(querytype, sizes[i], num_iter);
+			// }
+			// else{
+			// 	t = ourAverageTimer(q5, sizes[i], num_iter);
+			// }
+			// file << t;
+			// file << t << "#";
+			file << "\n";
+		}
+		file.close();
+	}
 }
 
 int debug(){
@@ -1849,10 +2140,11 @@ int debug(){
 int main(){
 	// debug();
 	// return 0;
-	// driver("add");
-	// driver("div");
-	// driver("tpose");
+	driver("add");
+	driver("div");
+	driver("tpose");
 	driver("matmul");
+	driver("conv", 20);
 }
 
 int old_main(int argc, char* argv[]){
