@@ -118,7 +118,7 @@ void fft2 (vector<T> &X, int offset,int N) {
         for(int k=0; k<N/2; k++) {
             T e = X[offset + k    ];   // even
             T o = X[offset + k+N/2];   // odd
-            T w = exp( complex<double>(0,-2.*M_PI*k/N) );
+            T w = exp( complex<double>(0,-2.*PI*k/N) );
             X[offset + k    ] = e + w * o;
             X[offset + k+N/2] = e - w * o;
         }
@@ -238,7 +238,7 @@ public:
 		int load_per_thr = num_elem / num_thr;
 		int num_left = num_elem - load_per_thr * num_thr;
 		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
-		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		// printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
 		thread workers[num_thrs];
 		// gen_arr<T> res(this->shape);
 		T *lhsptr, *rhs0ptr, *rhs1ptr;
@@ -270,7 +270,7 @@ public:
 		int load_per_thr = num_elem / num_thr;
 		int num_left = num_elem - load_per_thr * num_thr;
 		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
-		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		// printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
 		thread workers[num_thrs];
 		// gen_arr<T> res(this->shape);
 		T *lhsptr, *rhs0ptr;
@@ -309,7 +309,7 @@ public:
 		int load_per_thr = num_elem / num_thr;
 		int num_left = num_elem - load_per_thr * num_thr;
 		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
-		printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
+		// printf("num_elem:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_elem, load_per_thr, num_left, num_thr, num_thrs);
 		thread workers[num_thrs];
 		// gen_arr<T> res(this->shape);
 		T *lhsptr, *rhs0ptr, *rhs1ptr;
@@ -622,7 +622,7 @@ public:
 	}
 
 	static void add_single_thr(T *inp, T *res, int load, int m, int jump, int pos, int pos_jmp)
-	{
+{
 		for (int i = 0; i < load; i++)
 		{
 			T temp = *inp;
@@ -997,7 +997,7 @@ public:
 		int load_per_thr = num_col / num_thr;
 		int num_left = num_col - load_per_thr * num_thr;
 		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
-		printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
+		// printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
 		thread workers[num_thrs];
 		int ts0 = this->shape[0];
 		int ts1 = this->shape[1];
@@ -1110,7 +1110,7 @@ public:
 		gen_arr<T> *ress = new gen_arr<T>;
 		ress->init(new_shape, true);
 		gen_arr<T> &res = *ress;
-		printf("matmul: res defined\n");
+		// printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
@@ -1130,7 +1130,7 @@ public:
 		}
 		return res;
 	}
-	gen_arr matmul4(gen_arr<T> &rhs){ // 3X faster than matmul
+	gen_arr & matmul4(gen_arr<T> &rhs){ // 3X faster than matmul
 		assert(this->ndim == 2 && rhs.ndim == 2);
 		int m1 = this->shape[0], n1 = this->shape[1];
 		int m2 = rhs.shape[0], n2 = rhs.shape[1];
@@ -1198,7 +1198,7 @@ public:
 		int load_per_thr = num_col / num_thr;
 		int num_left = num_col - load_per_thr * num_thr;
 		int num_thrs = num_left > 0 ? num_thr + 1 : num_thr;
-		printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
+		// printf("num_col:%d;load_per_thr:%d;num_left:%d;num_thr:%d,num_thrs:%d\n", num_col, load_per_thr, num_left, num_thr, num_thrs);
 		thread workers[num_thrs];
 		int ts0 = this->shape[0];
 		int ts1 = this->shape[1];
@@ -1227,7 +1227,7 @@ public:
 		new_shape.push_back(m1);
 		new_shape.push_back(n2);
 		gen_arr<T> res(new_shape, 0, false, true);
-		printf("matmul: res defined\n");
+		// printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
@@ -1257,7 +1257,7 @@ public:
 		new_shape.push_back(m1);
 		new_shape.push_back(n2);
 		gen_arr<T> res(new_shape, 0, false, true);
-		printf("matmul: res defined\n");
+		// printf("matmul: res defined\n");
 		int sum;
 		int rhs0off = this->offset, rhs1off = rhs.offset;
 		int rhs0sh0 = this->cumulative_shape[0], rhs1sh0 = rhs.cumulative_shape[0];
@@ -1573,13 +1573,124 @@ public:
 		return sum;
 	}
 };
+// add, add_mt, div, div_mt, matmul, matmul{2..4}, matmul_mt, tpose, tpose_mt
+double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
+	vector<unsigned int> shape;
+	shape.push_back(size);
+	shape.push_back(size);
+	auto t_stamp31 = chrono::high_resolution_clock::now();
+	gen_arr<int> a3(shape, 9), b3(shape, 2);
+	auto t_stamp32 = chrono::high_resolution_clock::now();
+	if (fname=="add"){
+		gen_arr<int> c3 = a3.add(b3);
+	}
+	else if (fname=="add_mt"){
+		gen_arr<int> c3 = a3.multi_threaded_add(b3, num_thr);
+	}
+	else if (fname=="div"){
+		gen_arr<int> c3 = a3.div(b3);
+	}
+	else if (fname=="div_mt"){
+		gen_arr<int> c3 = a3.multi_threaded_div(b3, num_thr);
+	}
+	else if (fname=="matmul"){
+		gen_arr<int> c3 = a3.matmul(b3);
+	}
+	else if (fname=="matmul2"){
+		gen_arr<int> c3 = a3.matmul2(b3);
+	}
+	else if (fname=="matmul3"){
+		gen_arr<int> c3 = a3.matmul3(b3);
+	}
+	else if (fname=="matmul4"){
+		gen_arr<int> c3 = a3.matmul4(b3);
+	}
+	else if (fname=="matmul_mt"){
+		gen_arr<int> c3 = a3.matmul_mt(b3, num_thr);
+	}
+	else if (fname=="tpose"){
+		gen_arr<int> c3 = a3.transpose();
+	}
+	else if (fname=="tpose_mt"){
+		gen_arr<int> c3 = a3. transpose_mt(num_thr);
+	}
+	else{
+		return -1.0;
+	}
+	auto t_stamp33 = chrono::high_resolution_clock::now();
+	auto alloc_time321 = chrono::duration_cast<chrono::duration<double>>(t_stamp32 - t_stamp31).count();
+	auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp33 - t_stamp32).count();
+	return alloc_time332;
+	// printf("Time(in seconds): Alloc:%f;\tComputation (tpose multi):%f;\n", alloc_time321, alloc_time332);
+}
 
+int driver(string querytype){
+	cout << "driver: " << querytype << endl;
+	unsigned int sizes[4] = {10, 500, 1000, 10000};
+	if (querytype == "add" || querytype == "div" || querytype == "tpose"){
+		string qmt = querytype + "_mt";
+		ofstream file;
+		file.open(querytype+".csv", ios::trunc | ios::out);
+		for (int i = 0; i < 4; i++){
+			file << sizes[i] << ",";
+			double t = ourTimer(querytype, sizes[i]);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 2);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 4);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 8);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 16);
+			file << t << ",";
+			file << "\n";
+		}
+		file.close();
+	}
+	else if (querytype == "matmul"){
+		string qmt = querytype + "_mt";
+		string q2 = querytype + "2", q3 = querytype + "3", q4 = querytype + "4";
+		ofstream file;
+		file.open(querytype+".csv", ios::trunc | ios::out);
+		for (int i = 0; i < 3; i++){
+			printf("driver: matmul: size: %d\n", sizes[i]);
+			file << sizes[i] << ",";
+			double t = ourTimer(querytype, sizes[i]);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 2);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 4);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 4);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 8);
+			file << t << ",";
+			t = ourTimer(qmt, sizes[i], 16);
+			file << t << ",";
+			t = ourTimer(q2, sizes[i]);
+			file << t << ",";
+			t = ourTimer(q3, sizes[i]);
+			file << t << ",";
+			t = ourTimer(q4, sizes[i]);
+			file << t << ",";
+			file << "\n";
+		}
+		file.close();
+	}
+}
 
+int main(){
+	driver("add");
+	driver("div");
+	driver("tpose");
+	driver("matmul");
+}
 
-
-
-
-int main(int argc, char* argv[]){
+int old_main(int argc, char* argv[]){
+	int num_thr = 4;
+	if (argc >= 2){
+		num_thr = atoi(argv[1]);
+	}
 
 	vector<unsigned int> shape0;
 	vector<unsigned int> shape1;
@@ -1681,94 +1792,90 @@ int main(int argc, char* argv[]){
 	// cout<<ans[2].str();
 	// cout<<ans[3].str();
 
-	// int num_thr = 4;
-	// if (argc >= 2){
-	// 	num_thr = atoi(argv[1]);
-	// }
 	// // int shapearr[2] = {4,1};
-	// vector<vector<unsigned int> > shapes;
-	// shapes.push_back(vector<unsigned int> ());
-	// shapes[0].push_back(1000);shapes[0].push_back(1000);
-	// shapes.push_back(vector<unsigned int> ());
+	vector<vector<unsigned int> > shapes;
+	shapes.push_back(vector<unsigned int> ());
+	shapes[0].push_back(1000);shapes[0].push_back(1000);
+	shapes.push_back(vector<unsigned int> ());
 
-	// shapes[1].push_back(100);shapes[1].push_back(100);
+	shapes[1].push_back(100);shapes[1].push_back(100);
 	
-	// shapes.push_back(vector<unsigned int> ());
-	// shapes[2].push_back(3);shapes[2].push_back(3);
-	// // // shapes[0].push_back(1000);shapes[0].push_back(10000);
-	// // // vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
-	// auto t_stamp01 = chrono::high_resolution_clock::now();
-	// gen_arr<int > a0(shapes[0], 9), b0(shapes[0], 2);
-	// // gen_arr<int> a0(shapes[0], 9), b0(shapes[0], 2);
-	// auto t_stamp02 = chrono::high_resolution_clock::now();
-	// // gen_arr<int> c0 = a0 + b0;
-	// auto t_stamp03 = chrono::high_resolution_clock::now();
-	// auto alloc_time021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
-	// auto alloc_time032 = chrono::duration_cast<chrono::duration<double>>(t_stamp03 - t_stamp02).count();
+	shapes.push_back(vector<unsigned int> ());
+	shapes[2].push_back(3);shapes[2].push_back(3);
+	// // shapes[0].push_back(1000);shapes[0].push_back(10000);
+	// // vector<unsigned int> shape(shapearr, shapearr+sizeof(shapearr)/sizeof(shapearr[0]));
+	auto t_stamp01 = chrono::high_resolution_clock::now();
+	gen_arr<int > a0(shapes[0], 9), b0(shapes[0], 2);
+	// gen_arr<int> a0(shapes[0], 9), b0(shapes[0], 2);
+	auto t_stamp02 = chrono::high_resolution_clock::now();
+	// gen_arr<int> c0 = a0 + b0;
+	auto t_stamp03 = chrono::high_resolution_clock::now();
+	auto alloc_time021 = chrono::duration_cast<chrono::duration<double>>(t_stamp02 - t_stamp01).count();
+	auto alloc_time032 = chrono::duration_cast<chrono::duration<double>>(t_stamp03 - t_stamp02).count();
 
-	// // cout << "c0.shape" << vec_to_string(c0.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation(add):%f;\n", alloc_time021, alloc_time032);
+	// cout << "c0.shape" << vec_to_string(c0.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation(add):%f;\n", alloc_time021, alloc_time032);
 
-	// auto t_stamp11 = chrono::high_resolution_clock::now();
-	// gen_arr<complex<double>> a1(shapes[1], 3), b1(shapes[1], 7);
-	// a1[0][0].getval() = 4;b1[1][0].getval() = 0;
-	// auto t_stamp12 = chrono::high_resolution_clock::now();
-	// // auto c1 = a1.matmul4(b1);
-	// auto c1 = a1.dft_2();
-	// // auto c1 = a1.matmul_mt(b1, num_thr);
-	// // auto c1 = a1.multi_threaded_add2(b1, num_thr);
-	// // auto c1 = a1.multi_threaded_op2(b1, num_thr, "add");
-	// // auto c1 = a1.multi_threaded_add(b1, num_thr); 
-	// // auto c1 = a1.multi_threaded_add(b1, num_thr);
-	// // // printf("c2 calculated\n");
-    // auto t_stamp13 = chrono::high_resolution_clock::now();
-	// auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
-	// auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
-	// // cout << "fooo\n";
-	// // cout << "c1.shape" << vec_to_string(c1.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation(matmul):%f;\n", alloc_time121, alloc_time132);
+	auto t_stamp11 = chrono::high_resolution_clock::now();
+	gen_arr<complex<double>> a1(shapes[1], 3), b1(shapes[1], 7);
+	a1[0][0].getval() = 4;b1[1][0].getval() = 0;
+	auto t_stamp12 = chrono::high_resolution_clock::now();
+	// auto c1 = a1.matmul4(b1);
+	auto c1 = a1.dft_2();
+	// auto c1 = a1.matmul_mt(b1, num_thr);
+	// auto c1 = a1.multi_threaded_add2(b1, num_thr);
+	// auto c1 = a1.multi_threaded_op2(b1, num_thr, "add");
+	// auto c1 = a1.multi_threaded_add(b1, num_thr); 
+	// auto c1 = a1.multi_threaded_add(b1, num_thr);
+	// // printf("c2 calculated\n");
+    auto t_stamp13 = chrono::high_resolution_clock::now();
+	auto alloc_time121 = chrono::duration_cast<chrono::duration<double>>(t_stamp12 - t_stamp11).count();
+	auto alloc_time132 = chrono::duration_cast<chrono::duration<double>>(t_stamp13 - t_stamp12).count();
+	// cout << "fooo\n";
+	// cout << "c1.shape" << vec_to_string(c1.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation(matmul):%f;\n", alloc_time121, alloc_time132);
 
-	// cout << "a1's dump: \n" << a1.str() << endl; // a2.dummy_dump()
-	// cout << "b1's dump: \n" << b1.str() << endl;
-	// cout << "c1's dump: \n" << c1.str() << endl;
-	// auto t_stamp21 = chrono::high_resolution_clock::now();
-	// gen_arr<int> a2(shapes[1], 9), b2(shapes[1], 2);
-	// a2[2][0].getval() = 0;
-	// // cout << "a2.shape" << vec_to_string(a2.get_shape()) << endl;
-	// auto t_stamp22 = chrono::high_resolution_clock::now();
-	// gen_arr<int> c2 = a2.transpose();
-	// auto t_stamp23 = chrono::high_resolution_clock::now();
-	// auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
-	// auto alloc_time232 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
+	cout << "a1's dump: \n" << a1.str() << endl; // a2.dummy_dump()
+	cout << "b1's dump: \n" << b1.str() << endl;
+	cout << "c1's dump: \n" << c1.str() << endl;
+	auto t_stamp21 = chrono::high_resolution_clock::now();
+	gen_arr<int> a2(shapes[1], 9), b2(shapes[1], 2);
+	a2[2][0].getval() = 0;
+	// cout << "a2.shape" << vec_to_string(a2.get_shape()) << endl;
+	auto t_stamp22 = chrono::high_resolution_clock::now();
+	gen_arr<int> c2 = a2.transpose();
+	auto t_stamp23 = chrono::high_resolution_clock::now();
+	auto alloc_time221 = chrono::duration_cast<chrono::duration<double>>(t_stamp22 - t_stamp21).count();
+	auto alloc_time232 = chrono::duration_cast<chrono::duration<double>>(t_stamp23 - t_stamp22).count();
 
-	// cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation (tpose single):%f;\n", alloc_time221, alloc_time232);
-	// // cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
-	// // cout << "a2's dump: \n" << a2.str() << endl; // a2.dummy_dump()
-	// // cout << "b2's dump: \n" << b2.str() << endl;
-	// // cout << "c2's dump: \n" << c2.str() << endl;
-	// auto t_stamp31 = chrono::high_resolution_clock::now();
-	// gen_arr<int> a3(shapes[1], 9), b3(shapes[1], 2);
-	// // a3[2][0].getval() = 0;
-	// // cout << "a2.shape" << vec_to_string(a2.get_shape()) << endl;
-	// auto t_stamp32 = chrono::high_resolution_clock::now();
-	// gen_arr<int> c3 = a3.transpose_mt(num_thr);
-	// auto t_stamp33 = chrono::high_resolution_clock::now();
-	// auto alloc_time321 = chrono::duration_cast<chrono::duration<double>>(t_stamp32 - t_stamp31).count();
-	// auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp33 - t_stamp32).count();
+	cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation (tpose single):%f;\n", alloc_time221, alloc_time232);
+	// cout << "a's shape " << vec_to_string(a2.get_shape()) << endl;
+	// cout << "a2's dump: \n" << a2.str() << endl; // a2.dummy_dump()
+	// cout << "b2's dump: \n" << b2.str() << endl;
+	// cout << "c2's dump: \n" << c2.str() << endl;
+	auto t_stamp31 = chrono::high_resolution_clock::now();
+	gen_arr<int> a3(shapes[1], 9), b3(shapes[1], 2);
+	// a3[2][0].getval() = 0;
+	// cout << "a2.shape" << vec_to_string(a2.get_shape()) << endl;
+	auto t_stamp32 = chrono::high_resolution_clock::now();
+	gen_arr<int> c3 = a3.transpose_mt(num_thr);
+	auto t_stamp33 = chrono::high_resolution_clock::now();
+	auto alloc_time321 = chrono::duration_cast<chrono::duration<double>>(t_stamp32 - t_stamp31).count();
+	auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp33 - t_stamp32).count();
 	
-	// cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
-	// printf("Time(in seconds): Alloc:%f;\tComputation (tpose multi):%f;\n", alloc_time321, alloc_time332);
+	cout << "c2.shape" << vec_to_string(c2.get_shape()) << endl;
+	printf("Time(in seconds): Alloc:%f;\tComputation (tpose multi):%f;\n", alloc_time321, alloc_time332);
 
-	// gen_arr<int> bb0(shapes[2], 9);
-	// vector<unsigned int> shape4 = bb0.get_shape();
-	// reverse(shape4.begin(), shape4.end());
-	// bb0[1][1].getval() = 0;
-	// cout << "a3's dump: \n" << bb0.str() << endl;
-	// bb0.reshape(shape4);
-	// cout << "a3's dump after reshape: \n" << bb0.str() << endl;
+	gen_arr<int> bb0(shapes[2], 9);
+	vector<unsigned int> shape4 = bb0.get_shape();
+	reverse(shape4.begin(), shape4.end());
+	bb0[1][1].getval() = 0;
+	cout << "a3's dump: \n" << bb0.str() << endl;
+	bb0.reshape(shape4);
+	cout << "a3's dump after reshape: \n" << bb0.str() << endl;
 
-	// // printf("Time(in seconds): Alloc:%f;\tComputation (single):%f;\tComputation(%d):%f;\n", alloc_time321, alloc_time332, num_thr, alloc_time332);
+	// printf("Time(in seconds): Alloc:%f;\tComputation (single):%f;\tComputation(%d):%f;\n", alloc_time321, alloc_time332, num_thr, alloc_time332);
 	
 
 
