@@ -221,6 +221,10 @@ public:
 	gen_arr(vector<unsigned int> shape){
 		init(shape);
 	}
+	~gen_arr(){
+		long use_cnt = this->arr.use_count();
+		// cout << "gen_arr destroyed. shape = " << vec_to_string(this->shape) << ";\tuse count = " << use_cnt << endl;
+	}
 	string print_stats(){
 		string res = "";
 		res = res + "shape:\t" + vec_to_string(this->shape)+";\t";
@@ -301,10 +305,16 @@ public:
 		fn_helper(lhsptr, rhs0ptr, num_elem, fn);
 		return *res;
 	}
+	long get_use_cnt(){
+		return this->arr.use_count();
+	}
 	gen_arr & multi_threaded_op2(gen_arr<T>  & rhs, int num_thr, string name){
+		// cout << "mto start use_cnt: " << this->arr.use_count() << endl;
 		assert(this->shape == rhs.shape);
 		gen_arr<T> *res = new gen_arr(this->shape);
 		// gen_arr<T> res(this->shape);
+		// cout << "######mto start res use_cnt: " << res->arr.use_count() << endl;
+
 		int num_elem = this->arr_len;
 		int load_per_thr = num_elem / num_thr;
 		int num_left = num_elem - load_per_thr * num_thr;
@@ -345,10 +355,14 @@ public:
 		for (int i = 0; i < num_thrs; i++){
 			workers[i].join();
 		}
+		// cout << "######mto end res use_cnt: " << res->arr.use_count() << endl;
+		// cout << "mto end use_cnt: " << this->arr.use_count() << endl;
 		return *res;
 	}
-	gen_arr & multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
-		return multi_threaded_op2(rhs, num_thr, "add");
+	gen_arr multi_threaded_add(gen_arr<T>  & rhs, int num_thr){
+		gen_arr<T> res = multi_threaded_op2(rhs, num_thr, "add");
+		// cout << "in mta: res.use_cnt = " << res.get_use_cnt() << endl;
+		return res;
 	}
 	gen_arr & multi_threaded_sub(gen_arr<T> &rhs, int num_thr){
 		return multi_threaded_op2(rhs, num_thr, "sub");
@@ -1052,6 +1066,25 @@ public:
 		this->ndim = this->shape.size();
 		return;
 	}
+	gen_arr(gen_arr const & rhs){
+
+		int prev_arr_len = this->arr_len;
+		bool isparent = sizeof(this->arr)/sizeof(T) == this->arr_len;
+		// if(prev_arr_len != 0 || !isparent){
+		// 	assert(this->shape == rhs.shape);
+		// 	memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
+		// 	// return * this;
+		// }
+		this->shape = rhs.shape;
+		this->cumulative_shape = rhs.cumulative_shape;
+		this->ndim = rhs.ndim;
+		this->arr_len = rhs.arr_len;
+		this->arr = shared_ptr<T>(new T[arr_len], std::default_delete<T>());
+		memcpy(this->arr.get()+ this->offset, rhs.arr.get() + rhs.offset, this->arr_len * sizeof(T));
+		this->offset = 0;
+
+		//new	
+	}
 	gen_arr & operator=(gen_arr const & rhs){
 
 		int prev_arr_len = this->arr_len;
@@ -1586,6 +1619,7 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 	}
 	else if (fname=="add_mt"){
 		gen_arr<int> c3 = a3.multi_threaded_add(b3, num_thr);
+		// cout << "####c3uc = " << c3.get_use_cnt() << endl;
 	}
 	else if (fname=="div"){
 		gen_arr<int> c3 = a3.div(b3);
@@ -1612,7 +1646,7 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 		gen_arr<int> c3 = a3.transpose();
 	}
 	else if (fname=="tpose_mt"){
-		gen_arr<int> c3 = a3. transpose_mt(num_thr);
+		gen_arr<int> c3 = a3.transpose_mt(num_thr);
 	}
 	else{
 		return -1.0;
@@ -1620,11 +1654,22 @@ double ourTimer(string fname, unsigned int size, unsigned int num_thr=1){
 	auto t_stamp33 = chrono::high_resolution_clock::now();
 	auto alloc_time321 = chrono::duration_cast<chrono::duration<double>>(t_stamp32 - t_stamp31).count();
 	auto alloc_time332 = chrono::duration_cast<chrono::duration<double>>(t_stamp33 - t_stamp32).count();
+	// cout << "in ourTimer: a3.get_use_cnt() = " << a3.get_use_cnt() << b3.get_use_cnt() << endl;// << c3.get_use_cnt() << endl;
 	return alloc_time332;
 	// printf("Time(in seconds): Alloc:%f;\tComputation (tpose multi):%f;\n", alloc_time321, alloc_time332);
 }
 
-int driver(string querytype){
+double ourAverageTimer(string fname, unsigned int size, unsigned int num_itr=1, unsigned int num_thr=1){
+	if (num_itr < 1) num_itr = 1;
+	double sum = 0.0;
+	for (unsigned int i = 0; i < num_itr; i++){
+		sum += ourTimer(fname, size, num_thr);
+	}
+	// cout << "ourAverageTimer\n";
+	return sum / num_itr;
+}
+
+int driver(string querytype, int num_iter=1000){
 	cout << "driver: " << querytype << endl;
 	unsigned int sizes[4] = {10, 500, 1000, 10000};
 	if (querytype == "add" || querytype == "div" || querytype == "tpose"){
@@ -1632,17 +1677,18 @@ int driver(string querytype){
 		ofstream file;
 		file.open(querytype+".csv", ios::trunc | ios::out);
 		for (int i = 0; i < 4; i++){
+			cout << "i = " << i << endl;
 			file << sizes[i] << ",";
-			double t = ourTimer(querytype, sizes[i]);
+			double t = ourAverageTimer(querytype, sizes[i], num_iter);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 2);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 4);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 4);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 8);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 16);
-			file << t << ",";
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
+			// file << t << ",";
 			file << "\n";
 		}
 		file.close();
@@ -1655,31 +1701,40 @@ int driver(string querytype){
 		for (int i = 0; i < 3; i++){
 			printf("driver: matmul: size: %d\n", sizes[i]);
 			file << sizes[i] << ",";
-			double t = ourTimer(querytype, sizes[i]);
+			double t = ourAverageTimer(querytype, sizes[i], num_iter);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 2);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 2);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 4);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 4);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 4);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 8);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 8);
+			t = ourAverageTimer(qmt, sizes[i], num_iter, 16);
 			file << t << ",";
-			t = ourTimer(qmt, sizes[i], 16);
+			t = ourAverageTimer(q2, sizes[i], num_iter);
 			file << t << ",";
-			t = ourTimer(q2, sizes[i]);
+			t = ourAverageTimer(q3, sizes[i], num_iter);
 			file << t << ",";
-			t = ourTimer(q3, sizes[i]);
-			file << t << ",";
-			t = ourTimer(q4, sizes[i]);
-			file << t << ",";
+			t = ourAverageTimer(q4, sizes[i], num_iter);
+			file << t;
+			// file << t << "#";
 			file << "\n";
 		}
 		file.close();
 	}
 }
 
+int debug(){
+	vector<unsigned int> shape;
+	shape.push_back(3);
+	shape.push_back(4);
+	gen_arr<int> a3(shape, 9), b3(shape, 2);
+	gen_arr<int> c3 = a3.add(b3);
+}
+
 int main(){
+	// debug();
+	// return 0;
 	driver("add");
 	driver("div");
 	driver("tpose");
