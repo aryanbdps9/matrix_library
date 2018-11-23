@@ -21,9 +21,9 @@ to compile it, use the following command:
 	- [ ] conjugate (can be done using fn, or directly)
 - [X] reshape
 - [X] matmul
-- [ ] FFT
+- [X] FFT
 - [X] transpose
-- [ ] convolution
+- [X] convolution
 - [ ] (optional (what an irony)) padding with some number n
 - [X] trace
 - [X] sum
@@ -39,8 +39,8 @@ to compile it, use the following command:
 	- [X] Divide
 	- [X] Fn
 	- [ ] conjugate (can be done using fn, or directly)
-- [ ] matmul
-- [ ] FFT
+- [X] matmul
+- [X] FFT
 - [X] transpose
 - [ ] convolution
 - [ ] (optional (what an irony)) padding with some number n
